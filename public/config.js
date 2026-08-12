@@ -1,6 +1,6 @@
 "use strict";
 
-const ONLINE_API_URL = "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com";
+const ONLINE_API_URL = "https://ose-forecasting-mlr-backend.onrender.com";
 const queryApi = new URLSearchParams(window.location.search).get("api");
 const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 
