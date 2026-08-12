@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Forecasting MLR Seasonal Web App</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Forecasting MLR seasonal trend models V3</h1>
+    <div class="sub">Dự báo bằng hồi quy đa biến, xu thế, mùa vụ và các phương pháp tương tự Excel. Bản V1.3.4 (fixed) xử lý đồng bộ forecast discontinuity cho các mô hình seasonal: Seasonal Additive được neo (rebase) vào mức hiện tại khi có điều chỉnh xu thế; cảnh báo khi phát hiện trend mạnh; Holt-Winters giữ detrended seasonal initialization và tự tối ưu α–β–γ; Auto Forecast X và MLR vẫn được giữ nguyên.</div>
+    <div class="toolbar">
+      <button id="btnTemplate">Create Excel Template</button>
+      <input id="fileInput" type="file" accept=".xlsx,.xls" style="display:none" />
+      <button id="btnLoad">Load Excel</button>
+      <button id="btnDemo">Load Demo</button>
+      <label>Method
+        <select id="methodSelect">
+          <option>Auto Select Best</option>
+          <option>Multiple Linear Regression</option>
+          <option>Multiple Linear Regression + Trend</option>
+          <option>Multiple Linear Regression + Trend + Seasonal</option>
+          <option>Trend Regression</option>
+          <option>Seasonal Additive Regression</option>
+          <option>Trend + Seasonal Regression</option>
+          <option>Moving Average</option>
+          <option>Weighted Moving Average</option>
+          <option>Single Exponential Smoothing</option>
+          <option>Holt Linear Trend</option>
+          <option>Holt-Winters Additive</option>
+        </select>
+      </label>
+      <label>Season length <input id="seasonLength" type="number" min="2" value="12" style="width:78px" /></label>
+      <label>Future periods <input id="futurePeriods" type="number" min="1" value="6" style="width:78px" /></label>
+      <label>Future X method
+        <select id="futureXMethod">
+          <option>Hold Last Value</option>
+          <option>Moving Average</option>
+          <option>Single Exponential Smoothing</option>
+          <option>Linear Trend</option>
+          <option>Seasonal Repeat</option>
+          <option>Trend + Seasonal Regression</option>
+          <option>Holt Linear</option>
+          <option>Holt-Winters Additive</option>
+          <option selected>Auto Forecast X</option>
+          <option>User Input / Scenario</option>
+        </select>
+      </label>
+      <button id="btnRun" class="primary">RUN Forecast</button>
+      <button id="btnExport" class="good">Export Results</button>
+    </div>
+    <div class="advanced">
+      <b style="font-size:13px">Advanced calibration</b>
+      <label>HW alpha <input id="hwAlpha" type="number" min="0.01" max="0.99" step="0.01" value="0.25" /></label>
+      <label>HW beta <input id="hwBeta" type="number" min="0.01" max="0.99" step="0.01" value="0.10" /></label>
+      <label>HW gamma <input id="hwGamma" type="number" min="0.01" max="0.99" step="0.01" value="0.10" /></label>
+      <label><input id="hwAutoOptimize" type="checkbox" checked /> Auto optimize HW α–β–γ by RMSE</label>
+      <label><input id="seasonalTrendAdjust" type="checkbox" checked /> Anchor Seasonal Additive forecast to recent level + trend</label>
+    </div>
+    <div id="status" class="status">Ready. Hãy tạo template hoặc load demo để chạy thử.</div>
+    <div class="api-line"><span id="backendBadge" class="api-badge">Backend: checking...</span><span id="backendUrl" class="api-url"></span></div>
+  </header>
+  <main>
+    <div class="tabs">
+      <button class="tab active" data-tab="input">1. Input Data</button>
+      <button class="tab" data-tab="compare">2. Model Comparison</button>
+      <button class="tab" data-tab="results">3. Forecast Results</button>
+      <button class="tab" data-tab="dashboard">4. Dashboard</button>
+      <button class="tab" data-tab="guide">5. Guide & Formulas</button>
+    </div>
+
+    <section id="input" class="section active">
+      <div class="card">
+        <h2>Dữ liệu đầu vào</h2>
+        <p class="muted">Sheet Excel yêu cầu tên <b>ForecastData</b>. Có thể sửa trực tiếp trong bảng rồi bấm RUN Forecast.</p>
+        <div class="table-wrap"><table id="inputTable"></table></div>
+        <div id="futureXPanel" style="margin-top:14px;display:none">
+          <h2 style="margin-top:0">Future X values / Scenario</h2>
+          <p class="muted">Dùng khi chọn <b>User Input / Scenario</b>. Có thể sửa trực tiếp X1–X5 cho từng kỳ tương lai. Nếu để trống, app dùng Auto Forecast X cho ô đó.</p>
+          <div class="table-wrap"><table id="futureXTable"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="compare" class="section">
+      <div class="grid3" id="metricCards"></div>
+      <div class="card" style="margin-top:12px">
+        <h2>Model Comparison</h2>
+        <div class="table-wrap"><table id="comparisonTable"></table></div>
+      </div>
+    </section>
+
+    <section id="results" class="section">
+      <div class="card">
+        <h2>Forecast Results</h2>
+        <div class="table-wrap"><table id="resultsTable"></table></div>
+      </div>
+      <div id="hwDiagnosticsPanel" class="card" style="margin-top:12px;display:none">
+        <h2>Holt-Winters Components & Diagnostics</h2>
+        <p class="muted">Hiển thị Level, Trend, Seasonal và Fitted của từng kỳ. Với kỳ tương lai, Forecast = Level + h×Trend + Seasonal tương ứng. Bảng cũng cho biết α–β–γ được sử dụng.</p>
+        <div class="grid3" id="hwMetricCards"></div>
+        <div class="table-wrap" style="margin-top:10px"><table id="hwComponentsTable"></table></div>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="card">
+          <h2>Future X – Auto Select by Variable</h2>
+          <p class="muted">Có thể chọn trực tiếp từng mô hình Future X (bao gồm mô hình đơn và mô hình tổ hợp) hoặc chọn Auto Forecast X. Ở Auto, mỗi X1–X5 được thử độc lập trên Hold Last, Moving Average, SES, Linear Trend, Seasonal Repeat, Trend + Seasonal Regression, Holt Linear và Holt-Winters Additive; phần mềm chọn mô hình có Validation RMSE nhỏ nhất.</p>
+          <div class="table-wrap"><table id="futureXMethodTable"></table></div>
+        </div>
+        <div class="card">
+          <h2>Forecast X1–X5</h2>
+          <p class="muted">Giá trị các biến giải thích được dùng để tính dự báo Y ở từng kỳ tương lai.</p>
+          <div class="table-wrap"><table id="futureXForecastTable"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="section">
+      <div id="modelWarning" class="status" style="display:none;margin-bottom:12px;background:#fff7ed;color:#9a3412"></div>
+      <div class="grid">
+        <div class="card">
+          <h2>Actual vs Fitted / Forecast</h2>
+          <div class="legend"><span><i class="dot blue"></i>Actual</span><span><i class="dot green"></i>Fitted</span><span><i class="dot orange"></i>Future forecast</span></div>
+          <svg id="chartMain" viewBox="0 0 760 320" role="img" aria-label="Actual versus forecast chart"></svg>
+        </div>
+        <div class="card">
+          <h2>Residuals</h2>
+          <div class="legend"><span><i class="dot red"></i>Error = Actual - Fitted</span></div>
+          <svg id="chartResidual" viewBox="0 0 760 320" role="img" aria-label="Residual chart"></svg>
+        </div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2>Forecast Horizon</h2>
+        <div class="horizon-controls">
+          <label>Display horizon
+            <input id="horizonSlider" type="range" min="1" max="24" value="6" />
+            <b id="horizonValue">6 periods</b>
+          </label>
+          <button id="btnApplyHorizon" type="button">Apply horizon</button>
+          <span class="muted">Kéo slider để xem nhanh một phần horizon; bấm Apply horizon để tính lại số kỳ dự báo.</span>
+        </div>
+        <div class="horizon-kpis">
+          <div class="mini-card"><span>First forecast</span><b id="hFirst">N/A</b></div>
+          <div class="mini-card"><span>Last forecast</span><b id="hLast">N/A</b></div>
+          <div class="mini-card"><span>Average forecast</span><b id="hAvg">N/A</b></div>
+          <div class="mini-card"><span>Forecast change</span><b id="hChange">N/A</b></div>
+        </div>
+        <div class="grid">
+          <div>
+            <svg id="chartHorizon" viewBox="0 0 760 260" role="img" aria-label="Forecast horizon chart"></svg>
+          </div>
+          <div class="table-wrap"><table id="horizonTable"></table></div>
+        </div>
+      </div>
+      <div class="grid" style="margin-top:12px">
+        <div class="card"><h2>RMSE by Method</h2><svg id="chartRMSE" viewBox="0 0 760 320" role="img" aria-label="RMSE by method"></svg></div>
+        <div class="card"><h2>Executive Summary</h2><textarea id="summaryText" readonly>Summary will appear here.</textarea></div>
+      </div>
+    </section>
+
+    <section id="guide" class="section guide">
+      <div class="card">
+        <h2>Hướng dẫn và công thức</h2>
+        <p><b>Quy trình:</b> Create Excel Template → điền sheet ForecastData → Load Excel → chọn phương pháp → RUN Forecast → Export Results.</p>
+        <p><b>Các cột chính:</b> Period, Date, Target_Y, X1, X2, X3, X4, X5. Target_Y là biến cần dự báo; X1–X5 là biến giải thích dùng cho hồi quy đa biến.</p><p><b>Seasonal discontinuity control (V1.3.4):</b> Seasonal Additive Regression vẫn được fit như mô hình seasonal-only để người học thấy đúng bản chất mô hình. Tuy nhiên, nếu bật tùy chọn anchor, phần forecast ngoài mẫu được neo vào mức hiện tại đã loại mùa vụ và cộng xu thế gần đây để tránh bước nhảy giả tạo giữa quan sát cuối và F1. Khi phát hiện trend mạnh, app hiển thị cảnh báo nên cân nhắc Trend + Seasonal Regression hoặc Holt-Winters.</p>
+        <p><b>Holt-Winters Additive (V1.3.4):</b> Seasonal indices được khởi tạo từ dữ liệu đã loại xu thế thay vì lấy trực tiếp Y trừ trung bình mùa đầu. Có thể bật <b>Auto optimize HW α–β–γ by RMSE</b> để phần mềm tìm bộ tham số tốt hơn trên lưới giá trị; tab Forecast Results hiển thị Level, Trend và Seasonal nhằm giải thích từng forecast.</p>
+        <p><b>Future X Forecasting (V1.3.3):</b> Người dùng có thể chọn trực tiếp một trong 8 mô hình Future X: Hold Last, Moving Average, Single Exponential Smoothing, Linear Trend, Seasonal Repeat, Trend + Seasonal Regression, Holt Linear và Holt-Winters Additive. Nếu chọn Auto Forecast X, phần mềm sẽ thử toàn bộ các mô hình phù hợp cho từng X riêng biệt. Phần cuối chuỗi (xấp xỉ 20%, tối thiểu 3 kỳ và không vượt quá season length khi hợp lý) được dùng làm validation; mô hình có Validation RMSE nhỏ nhất được fit lại trên toàn bộ lịch sử X để dự báo tương lai. Với chuỗi nhị phân 0/1, app chỉ so sánh Hold Last và Seasonal Repeat để tránh tạo giá trị liên tục bất hợp lý. User Input / Scenario vẫn cho phép nhập X tương lai; ô trống fallback về Auto Forecast X.</p>
+        <div class="formula">Multiple Linear Regression: Ŷ = β₀ + β₁X₁ + β₂X₂ + ... + βₖXₖ</div>
+        <div class="formula">Trend Regression: Ŷₜ = β₀ + β₁t</div>
+        <div class="formula">Trend + Seasonal Regression: Ŷₜ = β₀ + β₁t + SeasonDummy</div>
+        <div class="formula">Moving Average: Fₜ = average(Yₜ₋₁, ..., Yₜ₋ₘ)</div>
+        <div class="formula">Single Exponential Smoothing: Fₜ₊₁ = αYₜ + (1 − α)Fₜ</div>
+        <div class="formula">Holt Linear: Level + Trend; Holt-Winters Additive: Level + Trend + Seasonality</div>
+        <p><b>Chỉ số đánh giá:</b> MAE, RMSE, MAPE và R². Phương pháp Auto Select Best chọn mô hình có RMSE nhỏ nhất. Từ V1.2, khi đổi Method, Season length hoặc Future periods, dashboard tự tính lại và cập nhật theo phương pháp đang chọn.</p>
+      </div>
+    </section>
+  </main>
+  <footer style="text-align:center;padding:16px 18px 22px;color:#6b7280;font-size:13px;border-top:1px solid #d1d5db;background:#ffffff;">Copyright 2026 - portlogistics.vn</footer>
+
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
