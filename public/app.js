@@ -21,9 +21,9 @@ function activateTab(id){
 async function checkBackend(){
   const badge=document.getElementById("backendBadge");
   const url=document.getElementById("backendUrl");
-  if(url) url.textContent=window.FORECAST_API_BASE;
+  if(url) url.textContent=await window.OSE_API_READY;
   try{
-    const r=await fetch(`${window.FORECAST_API_BASE}/api/health`,{cache:"no-store"});
+    const r=await window.oseFetch("/api/health",{cache:"no-store"});
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const j=await r.json();
     badge.textContent=`Backend: ${j.status||"online"}`;
@@ -113,7 +113,7 @@ async function runForecast({activate="compare",silent=false}={}){
     state.data=rows;
     const options=getOptions();
     setStatus("Running forecast on backend server...");
-    const r=await fetch(`${window.FORECAST_API_BASE}/api/forecast`,{
+    const r=await window.oseFetch("/api/forecast",{
       method:"POST", headers:{"Content-Type":"application/json"},
       body:JSON.stringify({rows, ...options})
     });
@@ -232,3 +232,14 @@ const horizonSlider=document.getElementById("horizonSlider");horizonSlider?.addE
 document.getElementById("btnApplyHorizon")?.addEventListener("click",()=>{const n=Math.max(1,Number(horizonSlider.value)||6);state.horizonDisplay=n;state.futurePeriods=n;document.getElementById("futurePeriods").value=String(n);runForecast({activate:"dashboard",silent:true});});
 
 state.data=demoData();renderInput();state.futureXMethod=document.getElementById("futureXMethod").value;state.futurePeriods=Number(document.getElementById("futurePeriods").value)||6;state.horizonDisplay=state.futurePeriods;renderFutureX();checkBackend();
+
+/* Server selector: Auto / Home / Render (config.js reads ?api=) */
+(function initServerSelect() {
+  const sel = document.getElementById("backendSelect");
+  if (!sel) return;
+  if (["localhost", "127.0.0.1"].includes(location.hostname)) { sel.hidden = true; return; }
+  let pinned = new URLSearchParams(location.search).get("api");
+  try { pinned = pinned || localStorage.getItem("ose_api"); } catch (e) {}
+  sel.value = ["home", "render"].includes(pinned) ? pinned : "auto";
+  sel.onchange = () => { const u = new URL(location.href); u.searchParams.set("api", sel.value); location.href = u.toString(); };
+})();
