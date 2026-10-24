@@ -1,186 +1,1142 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Forecasting MLR Seasonal Web App</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=202610221649" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forecasting MLR Seasonal Web App</title>
+<meta name="description" content="Dự báo bằng hồi quy đa biến, xu thế, mùa vụ – tính toán hoàn toàn trên trình duyệt">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f9;--surface:#ffffff;--surface-2:#f8fafc;--border:#dfe4ec;--text:#16202e;--muted:#5d6b7e;
+  --accent:#0b5cad;--accent-ink:#ffffff;--accent-soft:#e6f0fa;--ok:#167a4a;--ok-soft:#e5f5ec;--warn:#9a5b00;--warn-soft:#fff4e0;
+  --bad:#b42318;--bad-soft:#fdecea;--c1:#0b5cad;--c2:#e07b00;--c3:#1a9a6c;--c4:#8a8f98;--grid:#e6eaf0;
+  --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f141b;--surface:#171e28;--surface-2:#1c2431;--border:#2b3544;--text:#e6ebf2;--muted:#9aa7b8;
+  --accent:#5aa2ef;--accent-ink:#0b1420;--accent-soft:#1b2c42;--ok:#4cc38a;--ok-soft:#173226;--warn:#f0b04a;--warn-soft:#352a16;
+  --bad:#f27a6e;--bad-soft:#3a1d1b;--c1:#5aa2ef;--c2:#f0a14a;--c3:#4cc38a;--c4:#7d8796;--grid:#253041;}}
+:root[data-theme="dark"]{
+  --bg:#0f141b;--surface:#171e28;--surface-2:#1c2431;--border:#2b3544;--text:#e6ebf2;--muted:#9aa7b8;
+  --accent:#5aa2ef;--accent-ink:#0b1420;--accent-soft:#1b2c42;--ok:#4cc38a;--ok-soft:#173226;--warn:#f0b04a;--warn-soft:#352a16;
+  --bad:#f27a6e;--bad-soft:#3a1d1b;--c1:#5aa2ef;--c2:#f0a14a;--c3:#4cc38a;--c4:#7d8796;--grid:#253041;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 40px}
+header h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted);max-width:980px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:3px 9px;border-radius:999px;background:var(--ok-soft);color:var(--ok);font-weight:600;margin-top:8px}
+.badge i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:14px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.field select,.field input{font:inherit;font-size:13px;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;min-width:0}
+.field input[type=number]{width:86px}
+.btn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);background:var(--surface-2);color:var(--text);border-radius:6px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{padding:4px 9px;font-weight:500;font-size:12px}
+.sep{width:1px;align-self:stretch;background:var(--border)}
+details{margin-top:12px;border-top:1px dashed var(--border);padding-top:10px}
+summary{cursor:pointer;font-weight:600;font-size:13px}
+.adv{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin-top:10px}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px}
+#status{margin-top:12px;font-size:13px;padding:8px 12px;border-radius:6px;background:var(--accent-soft);color:var(--text)}
+#status.err{background:var(--bad-soft);color:var(--bad)}
+.warns div{margin-top:8px;font-size:13px;padding:8px 12px;border-radius:6px;background:var(--warn-soft);color:var(--warn)}
+.tabs{display:flex;gap:4px;margin-top:18px;border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{font:inherit;font-size:13px;font-weight:600;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:9px 12px;cursor:pointer;white-space:nowrap}
+.tab.on{color:var(--accent);border-color:var(--accent)}
+.panel{display:none}.panel.on{display:block}
+h2{font-size:16px;margin:0 0 4px}
+h3{font-size:14px;margin:0 0 6px}
+.note{color:var(--muted);font-size:13px;margin:0 0 10px}
+.tw{overflow:auto;max-height:520px;border:1px solid var(--border);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface-2);font-weight:600;color:var(--muted);z-index:1}
+td.l,th.l{text-align:left}
+td{font-variant-numeric:tabular-nums}
+tr.sel td{background:var(--accent-soft)}
+tr.fut td{background:var(--surface-2)}
+tr.fut td.fc{color:var(--c2);font-weight:600}
+td input{width:100%;min-width:72px;font:inherit;font-size:13px;text-align:right;border:1px solid transparent;background:transparent;color:var(--text);padding:3px 4px;border-radius:4px}
+td input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+td input.l{text-align:left}
+td input::placeholder{color:var(--muted);opacity:.75;font-style:italic}
+.pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--ok-soft);color:var(--ok);margin-left:6px}
+.pill.b{background:var(--accent-soft);color:var(--accent)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.kpi span{font-size:12px;color:var(--muted)}
+.kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums;margin-top:2px}
+.chartbox{position:relative;height:320px}
+.chartbox.sm{height:240px}
+.slider{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.slider input[type=range]{flex:1;min-width:180px;accent-color:var(--accent)}
+#summary{line-height:1.65}
+#summary ul{margin:6px 0 0;padding-left:20px}
+.guide p,.guide li{max-width:980px}
+.formula{font-family:var(--mono);font-size:13px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin:6px 0}
+footer{margin-top:28px;color:var(--muted);font-size:12px;text-align:center}
+.hidden{display:none!important}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.sep{display:none}.chartbox{height:260px}}
+</style>
 </head>
 <body>
-  <header>
-    <h1>Forecasting MLR seasonal trend models V3</h1>
-    <div class="sub">Dự báo bằng hồi quy đa biến, xu thế, mùa vụ và các phương pháp tương tự Excel. Bản V1.3.4 (fixed) xử lý đồng bộ forecast discontinuity cho các mô hình seasonal: Seasonal Additive được neo (rebase) vào mức hiện tại khi có điều chỉnh xu thế; cảnh báo khi phát hiện trend mạnh; Holt-Winters giữ detrended seasonal initialization và tự tối ưu α–β–γ; Auto Forecast X và MLR vẫn được giữ nguyên.</div>
-    <div class="toolbar">
-      <button id="btnTemplate">Create Excel Template</button>
-      <input id="fileInput" type="file" accept=".xlsx,.xls" style="display:none" />
-      <button id="btnLoad">Load Excel</button>
-      <button id="btnDemo">Load Demo</button>
-      <label>Method
-        <select id="methodSelect">
-          <option>Auto Select Best</option>
-          <option>Multiple Linear Regression</option>
-          <option>Multiple Linear Regression + Trend</option>
-          <option>Multiple Linear Regression + Trend + Seasonal</option>
-          <option>Trend Regression</option>
-          <option>Seasonal Additive Regression</option>
-          <option>Trend + Seasonal Regression</option>
-          <option>Moving Average</option>
-          <option>Weighted Moving Average</option>
-          <option>Single Exponential Smoothing</option>
-          <option>Holt Linear Trend</option>
-          <option>Holt-Winters Additive</option>
-        </select>
-      </label>
-      <label>Season length <input id="seasonLength" type="number" min="2" value="12" style="width:78px" /></label>
-      <label>Future periods <input id="futurePeriods" type="number" min="1" value="6" style="width:78px" /></label>
-      <label>Future X method
-        <select id="futureXMethod">
-          <option>Hold Last Value</option>
-          <option>Moving Average</option>
-          <option>Single Exponential Smoothing</option>
-          <option>Linear Trend</option>
-          <option>Seasonal Repeat</option>
-          <option>Trend + Seasonal Regression</option>
-          <option>Holt Linear</option>
-          <option>Holt-Winters Additive</option>
-          <option selected>Auto Forecast X</option>
-          <option>User Input / Scenario</option>
-        </select>
-      </label>
-      <button id="btnRun" class="primary">RUN Forecast</button>
-      <button id="btnExport" class="good">Export Results</button>
+<div class="wrap">
+<header>
+  <h1>Forecasting MLR seasonal trend models V3</h1>
+  <p>Dự báo bằng hồi quy đa biến, xu thế, mùa vụ và các phương pháp tương tự Excel. Bản V1.4.0 (client-side): toàn bộ tính toán chạy trực tiếp trên trình duyệt — không cần backend, dữ liệu không rời khỏi máy người dùng. Giữ nguyên các tính năng V1.3.4: anchor Seasonal Additive, cảnh báo trend mạnh, Holt-Winters detrended initialization và tự tối ưu α–β–γ, Auto Forecast X và MLR.</p>
+  <span class="badge"><i></i>Tính toán: trình duyệt (offline sau khi tải trang)</span>
+</header>
+
+<section class="card">
+  <div class="toolbar">
+    <button class="btn" id="bTemplate">Create Excel Template</button>
+    <button class="btn" id="bLoad">Load Excel</button>
+    <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" class="hidden">
+    <button class="btn" id="bDemo">Load Demo</button>
+    <span class="sep"></span>
+    <label class="field">Method
+      <select id="method">
+        <option value="auto">Auto Select Best</option>
+        <option value="mlr">Multiple Linear Regression</option>
+        <option value="mlrTrend">Multiple Linear Regression + Trend</option>
+        <option value="mlrTrendSeason">Multiple Linear Regression + Trend + Seasonal</option>
+        <option value="trend">Trend Regression</option>
+        <option value="seasonalAdd">Seasonal Additive Regression</option>
+        <option value="trendSeason">Trend + Seasonal Regression</option>
+        <option value="ma">Moving Average</option>
+        <option value="wma">Weighted Moving Average</option>
+        <option value="ses">Single Exponential Smoothing</option>
+        <option value="holt">Holt Linear Trend</option>
+        <option value="hw">Holt-Winters Additive</option>
+      </select></label>
+    <label class="field">Season length<input type="number" id="season" min="1" max="52" value="12"></label>
+    <label class="field">Future periods<input type="number" id="horizon" min="1" max="120" value="12"></label>
+    <label class="field">Future X method
+      <select id="fxMode">
+        <option value="hold">Hold Last Value</option>
+        <option value="ma">Moving Average</option>
+        <option value="ses">Single Exponential Smoothing</option>
+        <option value="linear">Linear Trend</option>
+        <option value="seasonal">Seasonal Repeat</option>
+        <option value="trendSeasonal">Trend + Seasonal Regression</option>
+        <option value="holt">Holt Linear</option>
+        <option value="hw">Holt-Winters Additive</option>
+        <option value="auto" selected>Auto Forecast X</option>
+        <option value="user">User Input / Scenario</option>
+      </select></label>
+    <button class="btn primary" id="bRun">RUN Forecast</button>
+    <button class="btn" id="bExport">Export Results</button>
+  </div>
+  <details>
+    <summary>Advanced calibration</summary>
+    <div class="adv">
+      <label class="field">HW alpha<input type="number" id="hwA" step="0.01" min="0.01" max="1" value="0.3"></label>
+      <label class="field">HW beta<input type="number" id="hwB" step="0.01" min="0" max="1" value="0.1"></label>
+      <label class="field">HW gamma<input type="number" id="hwG" step="0.01" min="0" max="1" value="0.2"></label>
+      <label class="field">MA / WMA window<input type="number" id="maW" min="1" max="24" value="3"></label>
+      <label class="chk"><input type="checkbox" id="hwAuto" checked> Auto optimize HW α–β–γ by RMSE</label>
+      <label class="chk"><input type="checkbox" id="anchor" checked> Anchor Seasonal Additive forecast to recent level + trend</label>
     </div>
-    <div class="advanced">
-      <b style="font-size:13px">Advanced calibration</b>
-      <label>HW alpha <input id="hwAlpha" type="number" min="0.01" max="0.99" step="0.01" value="0.25" /></label>
-      <label>HW beta <input id="hwBeta" type="number" min="0.01" max="0.99" step="0.01" value="0.10" /></label>
-      <label>HW gamma <input id="hwGamma" type="number" min="0.01" max="0.99" step="0.01" value="0.10" /></label>
-      <label><input id="hwAutoOptimize" type="checkbox" checked /> Auto optimize HW α–β–γ by RMSE</label>
-      <label><input id="seasonalTrendAdjust" type="checkbox" checked /> Anchor Seasonal Additive forecast to recent level + trend</label>
+  </details>
+  <div id="status">Ready. Hãy tạo template hoặc load demo để chạy thử.</div>
+  <div class="warns" id="warns"></div>
+</section>
+
+<nav class="tabs" id="tabs">
+  <button class="tab on" data-p="pInput">1. Input Data</button>
+  <button class="tab" data-p="pCompare">2. Model Comparison</button>
+  <button class="tab" data-p="pResults">3. Forecast Results</button>
+  <button class="tab" data-p="pDash">4. Dashboard</button>
+  <button class="tab" data-p="pGuide">5. Guide &amp; Formulas</button>
+</nav>
+
+<section class="panel on" id="pInput">
+  <div class="card">
+    <h2>Dữ liệu đầu vào</h2>
+    <p class="note">Sheet Excel yêu cầu tên <b>ForecastData</b>. Có thể sửa trực tiếp trong bảng, hoặc dán (Ctrl+V) vùng dữ liệu copy từ Excel, rồi bấm RUN Forecast.</p>
+    <div class="row">
+      <button class="btn small" id="bAddRow">+ Thêm dòng</button>
+      <button class="btn small" id="bDelRow">− Xóa dòng cuối</button>
+      <button class="btn small" id="bClear">Xóa toàn bộ</button>
     </div>
-    <div id="status" class="status">Ready. Hãy tạo template hoặc load demo để chạy thử.</div>
-    <div class="api-line"><span id="backendBadge" class="api-badge">Backend: checking...</span><span id="backendUrl" class="api-url"></span><select id="backendSelect" aria-label="Server" title="Ch&#7885;n m&#225;y ch&#7911; t&#237;nh to&#225;n" style="margin-left:8px;font-size:12px;padding:2px 4px;max-width:180px"><option value="auto">T&#7921; &#273;&#7897;ng (Home &#8594; Render)</option><option value="home">Home server</option><option value="render">Render</option></select></div>
-  </header>
-  <main>
-    <div class="tabs">
-      <button class="tab active" data-tab="input">1. Input Data</button>
-      <button class="tab" data-tab="compare">2. Model Comparison</button>
-      <button class="tab" data-tab="results">3. Forecast Results</button>
-      <button class="tab" data-tab="dashboard">4. Dashboard</button>
-      <button class="tab" data-tab="guide">5. Guide & Formulas</button>
+    <div class="tw"><table id="tData"></table></div>
+  </div>
+  <div class="card">
+    <h2>Future X values / Scenario</h2>
+    <p class="note">Dùng khi chọn <b>User Input / Scenario</b>. Có thể sửa trực tiếp X1–X5 cho từng kỳ tương lai. Nếu để trống, app dùng Auto Forecast X cho ô đó (giá trị gợi ý hiển thị mờ).</p>
+    <div class="tw"><table id="tFutX"></table></div>
+  </div>
+</section>
+
+<section class="panel" id="pCompare">
+  <div class="card">
+    <h2>Model Comparison</h2>
+    <p class="note">Sắp xếp theo RMSE tăng dần. Auto Select Best chọn mô hình có RMSE nhỏ nhất. Bấm vào một dòng để dùng mô hình đó.</p>
+    <div class="tw"><table id="tCompare"></table></div>
+  </div>
+</section>
+
+<section class="panel" id="pResults">
+  <div class="card">
+    <h2>Forecast Results</h2>
+    <p class="note" id="resNote"></p>
+    <div class="tw"><table id="tResults"></table></div>
+  </div>
+  <div class="card" id="coefCard">
+    <h2>Regression coefficients</h2>
+    <p class="note">Hệ số ước lượng bằng OLS; SE và t-stat giúp đánh giá mức ý nghĩa của từng biến.</p>
+    <div class="tw"><table id="tCoef"></table></div>
+  </div>
+  <div class="card" id="hwCard">
+    <h2>Holt-Winters Components &amp; Diagnostics</h2>
+    <p class="note">Hiển thị Level, Trend, Seasonal và Fitted của từng kỳ. Với kỳ tương lai, Forecast = Level + h×Trend + Seasonal tương ứng. <span id="hwParams"></span></p>
+    <div class="tw"><table id="tHW"></table></div>
+  </div>
+  <div class="card" id="fxCard">
+    <h2>Future X – Auto Select by Variable</h2>
+    <p class="note">Có thể chọn trực tiếp từng mô hình Future X hoặc Auto Forecast X. Ở Auto, mỗi X1–X5 được thử độc lập trên 8 mô hình; mô hình có Validation RMSE nhỏ nhất được chọn và fit lại trên toàn bộ lịch sử.</p>
+    <div class="tw"><table id="tFxSel"></table></div>
+  </div>
+  <div class="card" id="fxvCard">
+    <h2>Forecast X1–X5</h2>
+    <p class="note">Giá trị các biến giải thích được dùng để tính dự báo Y ở từng kỳ tương lai.</p>
+    <div class="tw"><table id="tFxVal"></table></div>
+  </div>
+</section>
+
+<section class="panel" id="pDash">
+  <div class="card">
+    <div class="kpis">
+      <div class="kpi"><span>First forecast</span><b id="kFirst">N/A</b></div>
+      <div class="kpi"><span>Last forecast</span><b id="kLast">N/A</b></div>
+      <div class="kpi"><span>Average forecast</span><b id="kAvg">N/A</b></div>
+      <div class="kpi"><span>Forecast change</span><b id="kChg">N/A</b></div>
     </div>
+  </div>
+  <div class="card">
+    <h3>Forecast Horizon</h3>
+    <div class="slider">
+      <span>Display horizon <b id="hzLbl">6 periods</b></span>
+      <input type="range" id="hz" min="1" max="12" value="6">
+      <button class="btn small" id="bApplyHz">Apply horizon</button>
+    </div>
+    <p class="note" style="margin-top:6px">Kéo slider để xem nhanh một phần horizon; bấm Apply horizon để tính lại số kỳ dự báo.</p>
+  </div>
+  <div class="card">
+    <h3>Actual vs Fitted / Forecast</h3>
+    <div class="chartbox"><canvas id="cMain"></canvas></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3>Residuals</h3><p class="note">Error = Actual − Fitted</p><div class="chartbox sm"><canvas id="cRes"></canvas></div></div>
+    <div class="card"><h3>RMSE by Method</h3><p class="note">Thanh đậm là mô hình đang dùng.</p><div class="chartbox sm"><canvas id="cRmse"></canvas></div></div>
+  </div>
+  <div class="card"><h3>Executive Summary</h3><div id="summary">Summary will appear here.</div></div>
+</section>
 
-    <section id="input" class="section active">
-      <div class="card">
-        <h2>Dữ liệu đầu vào</h2>
-        <p class="muted">Sheet Excel yêu cầu tên <b>ForecastData</b>. Có thể sửa trực tiếp trong bảng rồi bấm RUN Forecast.</p>
-        <div class="table-wrap"><table id="inputTable"></table></div>
-        <div id="futureXPanel" style="margin-top:14px;display:none">
-          <h2 style="margin-top:0">Future X values / Scenario</h2>
-          <p class="muted">Dùng khi chọn <b>User Input / Scenario</b>. Có thể sửa trực tiếp X1–X5 cho từng kỳ tương lai. Nếu để trống, app dùng Auto Forecast X cho ô đó.</p>
-          <div class="table-wrap"><table id="futureXTable"></table></div>
-        </div>
-      </div>
-    </section>
+<section class="panel guide" id="pGuide">
+  <div class="card">
+    <h2>Hướng dẫn và công thức</h2>
+    <p><b>Quy trình:</b> Create Excel Template → điền sheet ForecastData → Load Excel → chọn phương pháp → RUN Forecast → Export Results.</p>
+    <p><b>Các cột chính:</b> Period, Date, Target_Y, X1, X2, X3, X4, X5. Target_Y là biến cần dự báo; X1–X5 là biến giải thích dùng cho hồi quy đa biến. Cột X để trống hoàn toàn sẽ được bỏ qua.</p>
+    <p><b>Tính toán trên trình duyệt (V1.4.0):</b> Mọi mô hình (OLS, làm trơn hàm mũ, Holt, Holt-Winters, tối ưu tham số, Auto Forecast X) được tính bằng JavaScript ngay trên máy người dùng. Không có dữ liệu nào được gửi lên server; app vẫn chạy khi mất kết nối sau khi đã tải trang.</p>
+    <p><b>Seasonal discontinuity control:</b> Seasonal Additive Regression vẫn được fit như mô hình seasonal-only để người học thấy đúng bản chất mô hình. Nếu bật tùy chọn anchor, phần forecast ngoài mẫu được neo vào mức hiện tại đã loại mùa vụ (chỉ số mùa ước lượng trên dữ liệu đã khử xu thế) và cộng xu thế gần đây (≈2 mùa cuối) để tránh bước nhảy giả tạo giữa quan sát cuối và F1. Khi phát hiện trend mạnh (R² xu thế trên chuỗi đã loại mùa vụ &gt; 0,3), app cảnh báo nên cân nhắc Trend + Seasonal Regression hoặc Holt-Winters.</p>
+    <p><b>Holt-Winters Additive:</b> Seasonal indices được khởi tạo từ dữ liệu đã loại xu thế (tối đa 3 mùa đầu) thay vì lấy trực tiếp Y trừ trung bình mùa đầu. Bật <b>Auto optimize HW α–β–γ by RMSE</b> để tìm bộ tham số tốt nhất trên lưới giá trị (α, γ: 0,05–0,95; β: 0,025–0,6). RMSE của HW tính từ mùa thứ hai trở đi.</p>
+    <p><b>Future X Forecasting:</b> Chọn trực tiếp một trong 8 mô hình Future X: Hold Last, Moving Average, Single Exponential Smoothing, Linear Trend, Seasonal Repeat, Trend + Seasonal Regression, Holt Linear và Holt-Winters Additive. Nếu chọn Auto Forecast X, phần cuối chuỗi (≈20%, tối thiểu 3 kỳ và không vượt quá season length khi hợp lý) được dùng làm validation; mô hình có Validation RMSE nhỏ nhất được fit lại trên toàn bộ lịch sử X. Với chuỗi nhị phân 0/1, app chỉ so sánh Hold Last và Seasonal Repeat. User Input / Scenario cho phép nhập X tương lai; ô trống fallback về Auto Forecast X.</p>
+    <div class="formula">Multiple Linear Regression: Ŷ = β₀ + β₁X₁ + β₂X₂ + ... + βₖXₖ</div>
+    <div class="formula">Trend Regression: Ŷₜ = β₀ + β₁t</div>
+    <div class="formula">Trend + Seasonal Regression: Ŷₜ = β₀ + β₁t + Σ γⱼ·SeasonDummyⱼ</div>
+    <div class="formula">Moving Average: Fₜ = average(Yₜ₋₁, ..., Yₜ₋ₘ) &nbsp;|&nbsp; Weighted MA: trọng số 1, 2, …, m (kỳ gần nhất nặng nhất)</div>
+    <div class="formula">Single Exponential Smoothing: Fₜ₊₁ = αYₜ + (1 − α)Fₜ (α tối ưu theo RMSE)</div>
+    <div class="formula">Holt Linear: Lₜ = αYₜ + (1−α)(Lₜ₋₁+Tₜ₋₁); Tₜ = β(Lₜ−Lₜ₋₁) + (1−β)Tₜ₋₁; Fₜ₊ₕ = Lₜ + hTₜ</div>
+    <div class="formula">Holt-Winters Additive: Lₜ = α(Yₜ−Sₜ₋ₘ) + (1−α)(Lₜ₋₁+Tₜ₋₁); Sₜ = γ(Yₜ−Lₜ) + (1−γ)Sₜ₋ₘ; Fₜ₊ₕ = Lₜ + hTₜ + Sₜ₊ₕ₋ₘ</div>
+    <p><b>Chỉ số đánh giá:</b> MAE, RMSE, MAPE và R². Phương pháp Auto Select Best chọn mô hình có RMSE nhỏ nhất. Khi đổi Method, Season length, Future periods hoặc tham số nâng cao, dashboard tự tính lại.</p>
+  </div>
+</section>
 
-    <section id="compare" class="section">
-      <div class="grid3" id="metricCards"></div>
-      <div class="card" style="margin-top:12px">
-        <h2>Model Comparison</h2>
-        <div class="table-wrap"><table id="comparisonTable"></table></div>
-      </div>
-    </section>
+<footer>Copyright 2026 - portlogistics.vn</footer>
+</div>
+<script>
+/* Forecasting engine — runs entirely in the browser (no backend). */
+const FC = (() => {
+  'use strict';
+  const isNum = v => typeof v === 'number' && isFinite(v);
+  const mean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+  const round = (v, d = 4) => isNum(v) ? Math.round(v * 10 ** d) / 10 ** d : v;
 
-    <section id="results" class="section">
-      <div class="card">
-        <h2>Forecast Results</h2>
-        <div class="table-wrap"><table id="resultsTable"></table></div>
-      </div>
-      <div id="hwDiagnosticsPanel" class="card" style="margin-top:12px;display:none">
-        <h2>Holt-Winters Components & Diagnostics</h2>
-        <p class="muted">Hiển thị Level, Trend, Seasonal và Fitted của từng kỳ. Với kỳ tương lai, Forecast = Level + h×Trend + Seasonal tương ứng. Bảng cũng cho biết α–β–γ được sử dụng.</p>
-        <div class="grid3" id="hwMetricCards"></div>
-        <div class="table-wrap" style="margin-top:10px"><table id="hwComponentsTable"></table></div>
-      </div>
-      <div class="grid" style="margin-top:12px">
-        <div class="card">
-          <h2>Future X – Auto Select by Variable</h2>
-          <p class="muted">Có thể chọn trực tiếp từng mô hình Future X (bao gồm mô hình đơn và mô hình tổ hợp) hoặc chọn Auto Forecast X. Ở Auto, mỗi X1–X5 được thử độc lập trên Hold Last, Moving Average, SES, Linear Trend, Seasonal Repeat, Trend + Seasonal Regression, Holt Linear và Holt-Winters Additive; phần mềm chọn mô hình có Validation RMSE nhỏ nhất.</p>
-          <div class="table-wrap"><table id="futureXMethodTable"></table></div>
-        </div>
-        <div class="card">
-          <h2>Forecast X1–X5</h2>
-          <p class="muted">Giá trị các biến giải thích được dùng để tính dự báo Y ở từng kỳ tương lai.</p>
-          <div class="table-wrap"><table id="futureXForecastTable"></table></div>
-        </div>
-      </div>
-    </section>
+  // ---------- Linear algebra ----------
+  function solveSym(A, b) {
+    const p = b.length;
+    const M = A.map((r, i) => [...r, b[i]]);
+    for (let c = 0; c < p; c++) {
+      let piv = c;
+      for (let r = c + 1; r < p; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+      [M[c], M[piv]] = [M[piv], M[c]];
+      const d = M[c][c];
+      if (Math.abs(d) < 1e-300) return null;
+      for (let r = 0; r < p; r++) {
+        if (r === c) continue;
+        const f = M[r][c] / d;
+        if (f !== 0) for (let k = c; k <= p; k++) M[r][k] -= f * M[c][k];
+      }
+    }
+    return M.map((r, i) => r[p] / r[i]);
+  }
 
-    <section id="dashboard" class="section">
-      <div id="modelWarning" class="status" style="display:none;margin-bottom:12px;background:#fff7ed;color:#9a3412"></div>
-      <div class="grid">
-        <div class="card">
-          <h2>Actual vs Fitted / Forecast</h2>
-          <div class="legend"><span><i class="dot blue"></i>Actual</span><span><i class="dot green"></i>Fitted</span><span><i class="dot orange"></i>Future forecast</span></div>
-          <svg id="chartMain" viewBox="0 0 760 320" role="img" aria-label="Actual versus forecast chart"></svg>
-        </div>
-        <div class="card">
-          <h2>Residuals</h2>
-          <div class="legend"><span><i class="dot red"></i>Error = Actual - Fitted</span></div>
-          <svg id="chartResidual" viewBox="0 0 760 320" role="img" aria-label="Residual chart"></svg>
-        </div>
-      </div>
-      <div class="card" style="margin-top:12px">
-        <h2>Forecast Horizon</h2>
-        <div class="horizon-controls">
-          <label>Display horizon
-            <input id="horizonSlider" type="range" min="1" max="24" value="6" />
-            <b id="horizonValue">6 periods</b>
-          </label>
-          <button id="btnApplyHorizon" type="button">Apply horizon</button>
-          <span class="muted">Kéo slider để xem nhanh một phần horizon; bấm Apply horizon để tính lại số kỳ dự báo.</span>
-        </div>
-        <div class="horizon-kpis">
-          <div class="mini-card"><span>First forecast</span><b id="hFirst">N/A</b></div>
-          <div class="mini-card"><span>Last forecast</span><b id="hLast">N/A</b></div>
-          <div class="mini-card"><span>Average forecast</span><b id="hAvg">N/A</b></div>
-          <div class="mini-card"><span>Forecast change</span><b id="hChange">N/A</b></div>
-        </div>
-        <div class="grid">
-          <div>
-            <svg id="chartHorizon" viewBox="0 0 760 260" role="img" aria-label="Forecast horizon chart"></svg>
-          </div>
-          <div class="table-wrap"><table id="horizonTable"></table></div>
-        </div>
-      </div>
-      <div class="grid" style="margin-top:12px">
-        <div class="card"><h2>RMSE by Method</h2><svg id="chartRMSE" viewBox="0 0 760 320" role="img" aria-label="RMSE by method"></svg></div>
-        <div class="card"><h2>Executive Summary</h2><textarea id="summaryText" readonly>Summary will appear here.</textarea></div>
-      </div>
-    </section>
+  // OLS with tiny ridge for numerical stability; returns coefficients and standard errors
+  function ols(X, y) {
+    const n = X.length, p = X[0].length;
+    // column scaling improves conditioning
+    const sc = new Array(p).fill(0);
+    for (const r of X) for (let j = 0; j < p; j++) sc[j] = Math.max(sc[j], Math.abs(r[j]));
+    for (let j = 0; j < p; j++) if (sc[j] === 0) sc[j] = 1;
+    const A = Array.from({ length: p }, () => new Array(p).fill(0));
+    const b = new Array(p).fill(0);
+    for (let i = 0; i < n; i++) {
+      const r = X[i];
+      for (let j = 0; j < p; j++) {
+        const rj = r[j] / sc[j];
+        b[j] += rj * y[i];
+        for (let k = j; k < p; k++) A[j][k] += rj * r[k] / sc[k];
+      }
+    }
+    for (let j = 0; j < p; j++) for (let k = 0; k < j; k++) A[j][k] = A[k][j];
+    let tr = 0; for (let j = 0; j < p; j++) tr += A[j][j];
+    const lam = 1e-9 * (tr / p || 1);
+    for (let j = 0; j < p; j++) A[j][j] += lam;
+    const bs = solveSym(A, b);
+    if (!bs) return null;
+    const beta = bs.map((v, j) => v / sc[j]);
+    const fitted = X.map(r => r.reduce((s, v, j) => s + v * beta[j], 0));
+    const sse = y.reduce((s, v, i) => s + (v - fitted[i]) ** 2, 0);
+    const df = Math.max(n - p, 1);
+    const s2 = sse / df;
+    const se = beta.map((_, j) => {
+      const e = new Array(p).fill(0); e[j] = 1;
+      const col = solveSym(A, e);
+      return col ? Math.sqrt(Math.max(s2 * col[j], 0)) / sc[j] : NaN;
+    });
+    return { beta, se, fitted, sse, df };
+  }
 
-    <section id="guide" class="section guide">
-      <div class="card">
-        <h2>Hướng dẫn và công thức</h2>
-        <p><b>Quy trình:</b> Create Excel Template → điền sheet ForecastData → Load Excel → chọn phương pháp → RUN Forecast → Export Results.</p>
-        <p><b>Các cột chính:</b> Period, Date, Target_Y, X1, X2, X3, X4, X5. Target_Y là biến cần dự báo; X1–X5 là biến giải thích dùng cho hồi quy đa biến.</p><p><b>Seasonal discontinuity control (V1.3.4):</b> Seasonal Additive Regression vẫn được fit như mô hình seasonal-only để người học thấy đúng bản chất mô hình. Tuy nhiên, nếu bật tùy chọn anchor, phần forecast ngoài mẫu được neo vào mức hiện tại đã loại mùa vụ và cộng xu thế gần đây để tránh bước nhảy giả tạo giữa quan sát cuối và F1. Khi phát hiện trend mạnh, app hiển thị cảnh báo nên cân nhắc Trend + Seasonal Regression hoặc Holt-Winters.</p>
-        <p><b>Holt-Winters Additive (V1.3.4):</b> Seasonal indices được khởi tạo từ dữ liệu đã loại xu thế thay vì lấy trực tiếp Y trừ trung bình mùa đầu. Có thể bật <b>Auto optimize HW α–β–γ by RMSE</b> để phần mềm tìm bộ tham số tốt hơn trên lưới giá trị; tab Forecast Results hiển thị Level, Trend và Seasonal nhằm giải thích từng forecast.</p>
-        <p><b>Future X Forecasting (V1.3.3):</b> Người dùng có thể chọn trực tiếp một trong 8 mô hình Future X: Hold Last, Moving Average, Single Exponential Smoothing, Linear Trend, Seasonal Repeat, Trend + Seasonal Regression, Holt Linear và Holt-Winters Additive. Nếu chọn Auto Forecast X, phần mềm sẽ thử toàn bộ các mô hình phù hợp cho từng X riêng biệt. Phần cuối chuỗi (xấp xỉ 20%, tối thiểu 3 kỳ và không vượt quá season length khi hợp lý) được dùng làm validation; mô hình có Validation RMSE nhỏ nhất được fit lại trên toàn bộ lịch sử X để dự báo tương lai. Với chuỗi nhị phân 0/1, app chỉ so sánh Hold Last và Seasonal Repeat để tránh tạo giá trị liên tục bất hợp lý. User Input / Scenario vẫn cho phép nhập X tương lai; ô trống fallback về Auto Forecast X.</p>
-        <div class="formula">Multiple Linear Regression: Ŷ = β₀ + β₁X₁ + β₂X₂ + ... + βₖXₖ</div>
-        <div class="formula">Trend Regression: Ŷₜ = β₀ + β₁t</div>
-        <div class="formula">Trend + Seasonal Regression: Ŷₜ = β₀ + β₁t + SeasonDummy</div>
-        <div class="formula">Moving Average: Fₜ = average(Yₜ₋₁, ..., Yₜ₋ₘ)</div>
-        <div class="formula">Single Exponential Smoothing: Fₜ₊₁ = αYₜ + (1 − α)Fₜ</div>
-        <div class="formula">Holt Linear: Level + Trend; Holt-Winters Additive: Level + Trend + Seasonality</div>
-        <p><b>Chỉ số đánh giá:</b> MAE, RMSE, MAPE và R². Phương pháp Auto Select Best chọn mô hình có RMSE nhỏ nhất. Từ V1.2, khi đổi Method, Season length hoặc Future periods, dashboard tự tính lại và cập nhật theo phương pháp đang chọn.</p>
-      </div>
-    </section>
-  </main>
-  <footer style="text-align:center;padding:16px 18px 22px;color:#6b7280;font-size:13px;border-top:1px solid #d1d5db;background:#ffffff;">Copyright 2026 - portlogistics.vn</footer>
+  // ---------- Metrics ----------
+  function metrics(y, fitted) {
+    const idx = [];
+    for (let i = 0; i < y.length; i++) if (isNum(fitted[i]) && isNum(y[i])) idx.push(i);
+    if (!idx.length) return { MAE: NaN, RMSE: NaN, MAPE: NaN, R2: NaN, N: 0 };
+    let ae = 0, se = 0, ape = 0, nape = 0;
+    const ym = mean(idx.map(i => y[i]));
+    let sst = 0;
+    for (const i of idx) {
+      const e = y[i] - fitted[i];
+      ae += Math.abs(e); se += e * e; sst += (y[i] - ym) ** 2;
+      if (y[i] !== 0) { ape += Math.abs(e / y[i]); nape++; }
+    }
+    return {
+      MAE: ae / idx.length, RMSE: Math.sqrt(se / idx.length),
+      MAPE: nape ? 100 * ape / nape : NaN, R2: sst > 0 ? 1 - se / sst : NaN, N: idx.length
+    };
+  }
+  const rmse = (a, f) => Math.sqrt(mean(a.map((v, i) => (v - f[i]) ** 2)));
 
+  // ---------- Seasonal helpers ----------
+  const pos = (t, m) => ((t - 1) % m + m) % m;          // t is 1-based
+  const seasonOf = (series, n, h, m) => series[n + h - 1 - m * Math.ceil(h / m)];
 
-<script src="config.js?v=202610221649"></script>
-<script src="app.js?v=202610221649"></script>
+  // ---------- Univariate methods (used for Y and for Future X) ----------
+  function holdLast(y, h) {
+    const fitted = [null, ...y.slice(0, -1)];
+    return { fitted, forecast: new Array(h).fill(y[y.length - 1]), params: {} };
+  }
+
+  function movingAverage(y, h, w) {
+    w = Math.max(1, Math.min(w, y.length));
+    const fitted = y.map((_, i) => i >= w ? mean(y.slice(i - w, i)) : null);
+    return { fitted, forecast: new Array(h).fill(mean(y.slice(-w))), params: { window: w } };
+  }
+
+  function weightedMA(y, h, w) {
+    w = Math.max(1, Math.min(w, y.length));
+    const wts = Array.from({ length: w }, (_, k) => k + 1), sw = wts.reduce((a, b) => a + b, 0);
+    const wavg = arr => arr.reduce((s, v, k) => s + v * wts[k], 0) / sw;
+    const fitted = y.map((_, i) => i >= w ? wavg(y.slice(i - w, i)) : null);
+    return { fitted, forecast: new Array(h).fill(wavg(y.slice(-w))), params: { window: w, weights: wts.join(':') } };
+  }
+
+  function sesRun(y, a) {
+    const f = [y[0]];
+    for (let t = 1; t <= y.length; t++) f[t] = a * y[t - 1] + (1 - a) * f[t - 1];
+    return f; // f[t] is forecast for index t (0-based); f[n] = next
+  }
+  function ses(y, h, alpha) {
+    let best = alpha;
+    if (!isNum(best)) {
+      let bv = Infinity;
+      for (let a = 0.01; a <= 0.99 + 1e-9; a += 0.01) {
+        const f = sesRun(y, a);
+        const v = rmse(y.slice(1), f.slice(1, y.length));
+        if (v < bv) { bv = v; best = a; }
+      }
+    }
+    const f = sesRun(y, best);
+    const fitted = [null, ...f.slice(1, y.length)];
+    return { fitted, forecast: new Array(h).fill(f[y.length]), params: { alpha: round(best, 2) } };
+  }
+
+  function holtRun(y, a, b) {
+    const n = y.length;
+    let L = y[0], T = n > 1 ? y[1] - y[0] : 0;
+    const fitted = [null, null];
+    for (let t = 1; t < n; t++) {
+      if (t >= 2) fitted[t] = L + T;
+      const Lp = L;
+      L = a * y[t] + (1 - a) * (L + T);
+      T = b * (L - Lp) + (1 - b) * T;
+    }
+    return { fitted: fitted.slice(0, n), L, T };
+  }
+  function holt(y, h, alpha, beta) {
+    if (y.length < 3) return null;
+    let A = alpha, B = beta;
+    if (!isNum(A) || !isNum(B)) {
+      let bv = Infinity;
+      for (let a = 0.05; a <= 0.95 + 1e-9; a += 0.05)
+        for (let b = 0.05; b <= 0.95 + 1e-9; b += 0.05) {
+          const r = holtRun(y, a, b);
+          const m = metrics(y, r.fitted).RMSE;
+          if (m < bv) { bv = m; A = a; B = b; }
+        }
+    }
+    const r = holtRun(y, A, B);
+    return {
+      fitted: r.fitted, forecast: Array.from({ length: h }, (_, k) => r.L + (k + 1) * r.T),
+      params: { alpha: round(A, 2), beta: round(B, 2) }
+    };
+  }
+
+  function linearTrend(y, h) {
+    const n = y.length;
+    const r = ols(y.map((_, i) => [1, i + 1]), y);
+    if (!r) return null;
+    const [b0, b1] = r.beta;
+    return { fitted: r.fitted, forecast: Array.from({ length: h }, (_, k) => b0 + b1 * (n + k + 1)), params: { b0: round(b0), b1: round(b1) } };
+  }
+
+  function seasonalRepeat(y, h, m) {
+    const n = y.length;
+    if (m < 2 || n < m) return null;
+    const fitted = y.map((_, i) => i >= m ? y[i - m] : null);
+    return { fitted, forecast: Array.from({ length: h }, (_, k) => seasonOf(y, n, k + 1, m)), params: { m } };
+  }
+
+  // Holt-Winters Additive with detrended seasonal initialisation
+  function hwInit(y, m) {
+    const n = y.length;
+    const k = Math.min(Math.floor(n / m), 3) * m;
+    const seg = y.slice(0, k);
+    const r = ols(seg.map((_, i) => [1, i + 1]), seg);
+    const [a, b] = r.beta;
+    const S = new Array(m).fill(0), cnt = new Array(m).fill(0);
+    for (let i = 0; i < k; i++) { S[i % m] += seg[i] - (a + b * (i + 1)); cnt[i % m]++; }
+    for (let j = 0; j < m; j++) S[j] /= cnt[j];
+    const c = mean(S);
+    return { L0: a, T0: b, S0: S.map(v => v - c) };
+  }
+  function hwRun(y, m, a, b, g, init, keep) {
+    const n = y.length;
+    let L = init.L0, T = init.T0;
+    const S = init.S0.slice();           // S[t] index t-m mapping via array of length n+m
+    const Sall = [...S];                 // Sall[t + m - 1] seasonal at time t (1-based)
+    const fitted = new Array(n), comp = keep ? [] : null;
+    let sse = 0, cnt = 0;
+    for (let t = 1; t <= n; t++) {
+      const sPrev = Sall[t - 1];         // S_{t-m}
+      const f = L + T + sPrev;
+      fitted[t - 1] = f;
+      if (t > m) { sse += (y[t - 1] - f) ** 2; cnt++; }
+      const Lp = L;
+      L = a * (y[t - 1] - sPrev) + (1 - a) * (L + T);
+      T = b * (L - Lp) + (1 - b) * T;
+      const sNew = g * (y[t - 1] - L) + (1 - g) * sPrev;
+      Sall.push(sNew);
+      if (keep) comp.push({ t, level: L, trend: T, seasonal: sNew, fitted: f });
+    }
+    return { fitted, L, T, Sall, rmse: Math.sqrt(sse / Math.max(cnt, 1)), comp };
+  }
+  function holtWinters(y, h, m, opt = {}) {
+    const n = y.length;
+    if (m < 2 || n < 2 * m) return null;
+    const init = hwInit(y, m);
+    let A = opt.alpha ?? 0.3, B = opt.beta ?? 0.1, G = opt.gamma ?? 0.2;
+    if (opt.auto) {
+      const step = opt.coarse ? 0.1 : 0.05;
+      let bv = Infinity;
+      for (let a = step; a <= 0.95 + 1e-9; a += step)
+        for (let b = step / 2; b <= 0.6 + 1e-9; b += step)
+          for (let g = step; g <= 0.95 + 1e-9; g += step) {
+            const r = hwRun(y, m, a, b, g, init, false);
+            if (r.rmse < bv) { bv = r.rmse; A = a; B = b; G = g; }
+          }
+    }
+    const r = hwRun(y, m, A, B, G, init, true);
+    const fitted = r.fitted.map((v, i) => i >= m ? v : null);
+    const futureComp = [];
+    const forecast = Array.from({ length: h }, (_, k) => {
+      const hh = k + 1;
+      const s = r.Sall[n + hh - 1 - m * (Math.ceil(hh / m) - 1)];
+      const f = r.L + hh * r.T + s;
+      futureComp.push({ h: hh, level: r.L, trend: r.T, seasonal: s, forecast: f });
+      return f;
+    });
+    return {
+      fitted, forecast,
+      params: { alpha: round(A, 2), beta: round(B, 3), gamma: round(G, 2), optimized: !!opt.auto },
+      components: { history: r.comp, future: futureComp }
+    };
+  }
+
+  // ---------- Regression family ----------
+  function designRow(t, xRow, m, cfg) {
+    const r = [1];
+    if (cfg.x) r.push(...xRow);
+    if (cfg.trend) r.push(t);
+    if (cfg.season) for (let j = 1; j < m; j++) r.push(pos(t, m) === j ? 1 : 0);
+    return r;
+  }
+  function designNames(xNames, m, cfg) {
+    const r = ['Intercept'];
+    if (cfg.x) r.push(...xNames);
+    if (cfg.trend) r.push('t');
+    if (cfg.season) for (let j = 1; j < m; j++) r.push('S' + (j + 1));
+    return r;
+  }
+  function regression(y, X, futX, h, m, cfg, xNames) {
+    const n = y.length;
+    const p = 1 + (cfg.x ? xNames.length : 0) + (cfg.trend ? 1 : 0) + (cfg.season ? m - 1 : 0);
+    if (cfg.x && !xNames.length) return null;
+    if (cfg.season && m < 2) return null;
+    if (n <= p) return null;
+    const D = y.map((_, i) => designRow(i + 1, cfg.x ? X[i] : [], m, cfg));
+    const r = ols(D, y);
+    if (!r) return null;
+    const forecast = Array.from({ length: h }, (_, k) => {
+      const row = designRow(n + k + 1, cfg.x ? futX[k] : [], m, cfg);
+      return row.reduce((s, v, j) => s + v * r.beta[j], 0);
+    });
+    const names = designNames(xNames, m, cfg);
+    return {
+      fitted: r.fitted, forecast,
+      coefficients: names.map((nm, j) => ({ term: nm, coef: r.beta[j], se: r.se[j], t: r.beta[j] / r.se[j] })),
+      params: { terms: p }
+    };
+  }
+
+  function seasonalAdditive(y, h, m, anchor) {
+    const n = y.length;
+    if (m < 2 || n <= m) return null;
+    const res = regression(y, null, null, h, m, { season: true }, []);
+    if (!res) return null;
+    // centered seasonal effects estimated on detrended data (trend + season fit),
+    // so trend does not leak into the seasonal indices used for anchoring
+    const ts = regression(y, null, null, 1, m, { trend: true, season: true }, []);
+    const eff = [0, ...(ts || res).coefficients.slice(ts ? 2 : 1).map(c => c.coef)];
+    const c = mean(eff);
+    const S = eff.map(v => v - c);
+    const z = y.map((v, i) => v - S[pos(i + 1, m)]);  // deseasonalised
+    // trend check on whole deseasonalised series
+    const full = ols(z.map((_, i) => [1, i + 1]), z);
+    const zm = mean(z), sst = z.reduce((s, v) => s + (v - zm) ** 2, 0);
+    const trendR2 = sst > 0 ? 1 - full.sse / sst : 0;
+    const strongTrend = trendR2 > 0.3;
+    // recent level and trend
+    const k = Math.min(n, Math.max(2 * m, 4));
+    const zs = z.slice(-k);
+    const loc = ols(zs.map((_, i) => [1, n - k + i + 1]), zs);
+    const level = loc.beta[0] + loc.beta[1] * n, slope = loc.beta[1];
+    res.params = { anchored: !!anchor, trendR2: round(trendR2, 3) };
+    if (anchor) {
+      res.forecast = Array.from({ length: h }, (_, kk) => level + slope * (kk + 1) + S[pos(n + kk + 1, m)]);
+      res.params.anchorLevel = round(level, 3); res.params.recentSlope = round(slope, 4);
+    }
+    res.strongTrend = strongTrend;
+    res.seasonalEffects = S;
+    return res;
+  }
+
+  // ---------- Future X ----------
+  const FX_METHODS = {
+    hold: 'Hold Last Value', ma: 'Moving Average', ses: 'Single Exponential Smoothing',
+    linear: 'Linear Trend', seasonal: 'Seasonal Repeat', trendSeasonal: 'Trend + Seasonal Regression',
+    holt: 'Holt Linear', hw: 'Holt-Winters Additive'
+  };
+  function fxForecast(key, x, h, m, maW) {
+    switch (key) {
+      case 'hold': return holdLast(x, h);
+      case 'ma': return movingAverage(x, h, maW);
+      case 'ses': return x.length >= 3 ? ses(x, h) : null;
+      case 'linear': return x.length >= 3 ? linearTrend(x, h) : null;
+      case 'seasonal': return seasonalRepeat(x, h, m);
+      case 'trendSeasonal': return m >= 2 && x.length > m + 2 ? regression(x, null, null, h, m, { trend: true, season: true }, []) : null;
+      case 'holt': return holt(x, h);
+      case 'hw': return holtWinters(x, h, m, { auto: true, coarse: true });
+    }
+    return null;
+  }
+  const isBinary = x => x.every(v => v === 0 || v === 1);
+  function validationSize(n, m) {
+    let v = Math.max(3, Math.round(0.2 * n));
+    if (m >= 3 && v > m) v = m;
+    return Math.min(v, n - 3);
+  }
+  function autoFX(x, h, m, maW) {
+    const n = x.length;
+    const cands = isBinary(x) ? ['hold', 'seasonal'] : Object.keys(FX_METHODS);
+    const v = validationSize(n, m);
+    const scores = {};
+    let best = 'hold', bv = Infinity;
+    if (v >= 1) {
+      const train = x.slice(0, n - v), test = x.slice(n - v);
+      for (const k of cands) {
+        let r = null;
+        try { r = fxForecast(k, train, v, m, maW); } catch (e) { r = null; }
+        if (!r || !r.forecast.every(isNum)) { scores[k] = null; continue; }
+        const s = rmse(test, r.forecast);
+        scores[k] = s;
+        if (s < bv - 1e-12) { bv = s; best = k; }
+      }
+    }
+    let r = fxForecast(best, x, h, m, maW) || holdLast(x, h);
+    return { method: best, forecast: r.forecast, scores, validation: v, binary: isBinary(x) };
+  }
+
+  function forecastX(X, xNames, h, m, mode, userX, maW) {
+    const out = Array.from({ length: h }, () => new Array(xNames.length).fill(0));
+    const info = [];
+    xNames.forEach((nm, j) => {
+      const x = X.map(r => r[j]);
+      let rec;
+      if (mode === 'auto' || mode === 'user') {
+        rec = autoFX(x, h, m, maW);
+        rec.mode = mode === 'user' ? 'User Input (blank → Auto)' : 'Auto';
+      } else {
+        let r = null;
+        if (isBinary(x) && !['hold', 'seasonal'].includes(mode)) r = null;
+        else { try { r = fxForecast(mode, x, h, m, maW); } catch (e) { r = null; } }
+        if (r) rec = { method: mode, forecast: r.forecast, scores: {}, mode: 'Fixed' };
+        else { const a = autoFX(x, h, m, maW); rec = { ...a, mode: 'Fallback → Auto', note: FX_METHODS[mode] + ' không áp dụng được' }; }
+      }
+      let nUser = 0;
+      for (let k = 0; k < h; k++) {
+        let v = rec.forecast[k];
+        if (mode === 'user' && userX && userX[k] && isNum(userX[k][j])) { v = userX[k][j]; nUser++; }
+        if (rec.binary) v = v >= 0.5 ? 1 : 0;
+        out[k][j] = v;
+      }
+      rec.userCells = nUser;
+      rec.variable = nm;
+      info.push(rec);
+    });
+    return { values: out, info };
+  }
+
+  // ---------- Method registry ----------
+  const METHODS = {
+    mlr: 'Multiple Linear Regression',
+    mlrTrend: 'Multiple Linear Regression + Trend',
+    mlrTrendSeason: 'Multiple Linear Regression + Trend + Seasonal',
+    trend: 'Trend Regression',
+    seasonalAdd: 'Seasonal Additive Regression',
+    trendSeason: 'Trend + Seasonal Regression',
+    ma: 'Moving Average',
+    wma: 'Weighted Moving Average',
+    ses: 'Single Exponential Smoothing',
+    holt: 'Holt Linear Trend',
+    hw: 'Holt-Winters Additive'
+  };
+
+  function run(data, opt) {
+    const y = data.y, X = data.X, xNames = data.xNames;
+    const n = y.length, h = opt.horizon, m = opt.season, maW = opt.maWindow || 3;
+    if (n < 4) throw new Error('Cần ít nhất 4 kỳ dữ liệu Target_Y.');
+    const warnings = [];
+    const fx = xNames.length ? forecastX(X, xNames, h, m, opt.fxMode, opt.userX, maW) : { values: Array.from({ length: h }, () => []), info: [] };
+    const results = {};
+    const add = (key, fn) => {
+      let r = null;
+      try { r = fn(); } catch (e) { r = null; }
+      if (r) { r.key = key; r.name = METHODS[key]; r.metrics = metrics(y, r.fitted); results[key] = r; }
+    };
+    add('mlr', () => regression(y, X, fx.values, h, m, { x: true }, xNames));
+    add('mlrTrend', () => regression(y, X, fx.values, h, m, { x: true, trend: true }, xNames));
+    add('mlrTrendSeason', () => regression(y, X, fx.values, h, m, { x: true, trend: true, season: true }, xNames));
+    add('trend', () => regression(y, null, null, h, m, { trend: true }, []));
+    add('seasonalAdd', () => seasonalAdditive(y, h, m, opt.anchor));
+    add('trendSeason', () => regression(y, null, null, h, m, { trend: true, season: true }, []));
+    add('ma', () => movingAverage(y, h, maW));
+    add('wma', () => weightedMA(y, h, maW));
+    add('ses', () => ses(y, h));
+    add('holt', () => holt(y, h));
+    add('hw', () => holtWinters(y, h, m, { alpha: opt.hwAlpha, beta: opt.hwBeta, gamma: opt.hwGamma, auto: opt.hwAuto }));
+
+    const ranked = Object.values(results).filter(r => isNum(r.metrics.RMSE)).sort((a, b) => a.metrics.RMSE - b.metrics.RMSE);
+    if (!ranked.length) throw new Error('Không mô hình nào chạy được với dữ liệu hiện tại.');
+    const bestKey = ranked[0].key;
+    let selKey = opt.method === 'auto' ? bestKey : opt.method;
+    if (!results[selKey]) {
+      warnings.push(`${METHODS[selKey] || selKey} không chạy được với dữ liệu/tham số hiện tại → dùng ${METHODS[bestKey]}.`);
+      selKey = bestKey;
+    }
+    if (results.seasonalAdd && results.seasonalAdd.strongTrend && selKey === 'seasonalAdd')
+      warnings.push(`Phát hiện xu thế mạnh (R² trend trên chuỗi đã loại mùa vụ = ${results.seasonalAdd.params.trendR2}). Nên cân nhắc Trend + Seasonal Regression hoặc Holt-Winters thay cho Seasonal Additive.`);
+    if (!results.hw) warnings.push(`Holt-Winters cần ít nhất 2 mùa (${2 * m} kỳ) dữ liệu.`);
+    if (!xNames.length) warnings.push('Không có dữ liệu X1–X5 → các mô hình MLR bị bỏ qua.');
+    return { results, ranked, bestKey, selKey, futureX: fx, warnings, n, h, m };
+  }
+
+  return { run, metrics, ols, METHODS, FX_METHODS, isNum, round, _: { holtWinters, ses, holt, seasonalAdditive, autoFX, regression } };
+})();
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const XN = ['X1', 'X2', 'X3', 'X4', 'X5'];
+const S = { rows: [], userX: [], out: null, charts: {}, displayH: 6 };
+
+// ---------- helpers ----------
+const num = v => {
+  if (v === null || v === undefined) return NaN;
+  if (typeof v === 'number') return v;
+  let s = String(v).trim().replace(/\s/g, '');
+  if (!s) return NaN;
+  if (s.includes(',') && s.includes('.')) s = s.replace(/,/g, '');
+  else if (s.includes(',')) s = s.replace(',', '.');
+  const n = Number(s);
+  return isFinite(n) ? n : NaN;
+};
+const ok = v => typeof v === 'number' && isFinite(v);
+const f2 = (v, d = 2) => ok(v) ? v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function setStatus(msg, err) { const el = $('status'); el.textContent = msg; el.className = err ? 'err' : ''; }
+
+function fmtDate(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    const d = new Date(v.getTime() - v.getTimezoneOffset() * 60000);
+    return d.toISOString().slice(0, 10);
+  }
+  return v == null ? '' : String(v);
+}
+function parseDate(s) {
+  if (!s) return null;
+  const m = /^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/.exec(s.trim());
+  if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +(m[3] || 1)));
+  const m2 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s.trim());
+  if (m2) return new Date(Date.UTC(+m2[3], +m2[2] - 1, +m2[1]));
+  return null;
+}
+function futureDates(dates, h) {
+  const ds = dates.map(parseDate);
+  const n = ds.length;
+  if (n < 2 || !ds[n - 1] || !ds[n - 2]) return new Array(h).fill('');
+  const a = ds[n - 2], b = ds[n - 1];
+  const iso = d => d.toISOString().slice(0, 10);
+  const monthDiff = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth();
+  const dayDiff = Math.round((b - a) / 864e5);
+  if (monthDiff >= 1 && monthDiff <= 12 && dayDiff >= 28) {
+    return Array.from({ length: h }, (_, k) => {
+      const d = new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth() + monthDiff * (k + 1), 1));
+      const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+      d.setUTCDate(Math.min(b.getUTCDate(), last));
+      return iso(d);
+    });
+  }
+  if (dayDiff > 0) return Array.from({ length: h }, (_, k) => iso(new Date(b.getTime() + dayDiff * (k + 1) * 864e5)));
+  return new Array(h).fill('');
+}
+
+// ---------- options ----------
+function opts() {
+  return {
+    method: $('method').value,
+    season: Math.max(1, Math.round(num($('season').value) || 12)),
+    horizon: Math.max(1, Math.min(120, Math.round(num($('horizon').value) || 12))),
+    fxMode: $('fxMode').value,
+    hwAlpha: num($('hwA').value), hwBeta: num($('hwB').value), hwGamma: num($('hwG').value),
+    hwAuto: $('hwAuto').checked, anchor: $('anchor').checked,
+    maWindow: Math.max(1, Math.round(num($('maW').value) || 3))
+  };
+}
+
+// ---------- data extraction ----------
+function getData() {
+  const hist = S.rows.filter(r => ok(num(r.y)));
+  const used = XN.map((_, j) => hist.some(r => ok(num(r.x[j]))));
+  const xIdx = used.map((u, j) => u ? j : -1).filter(j => j >= 0);
+  const X = hist.map(r => xIdx.map(j => num(r.x[j])));
+  // fill gaps: forward fill, then backward fill
+  xIdx.forEach((_, c) => {
+    let last = NaN;
+    for (const row of X) { if (ok(row[c])) last = row[c]; else if (ok(last)) row[c] = last; }
+    for (let i = X.length - 1; i >= 0; i--) { if (ok(X[i][c])) last = X[i][c]; else X[i][c] = last; }
+  });
+  return {
+    y: hist.map(r => num(r.y)), X, xIdx, xNames: xIdx.map(j => XN[j]),
+    periods: hist.map((r, i) => r.period || String(i + 1)), dates: hist.map(r => r.date || '')
+  };
+}
+
+// ---------- input tables ----------
+function renderData() {
+  let h = '<tr><th class="l">Period</th><th class="l">Date</th><th>Target_Y</th>' + XN.map(x => `<th>${x}</th>`).join('') + '</tr>';
+  S.rows.forEach((r, i) => {
+    h += `<tr><td><input class="l" data-r="${i}" data-k="period" value="${esc(r.period)}"></td>`
+      + `<td><input class="l" data-r="${i}" data-k="date" value="${esc(r.date)}"></td>`
+      + `<td><input data-r="${i}" data-k="y" value="${esc(r.y)}"></td>`
+      + XN.map((_, j) => `<td><input data-r="${i}" data-k="x${j}" value="${esc(r.x[j])}"></td>`).join('') + '</tr>';
+  });
+  if (!S.rows.length) h += `<tr><td class="l" colspan="8" style="color:var(--muted)">Chưa có dữ liệu. Load Excel, Load Demo hoặc dán dữ liệu từ Excel vào đây.</td></tr>`;
+  $('tData').innerHTML = h;
+}
+$('tData').addEventListener('input', e => {
+  const t = e.target; if (!t.dataset.k) return;
+  const r = S.rows[+t.dataset.r], k = t.dataset.k;
+  if (k.startsWith('x')) r.x[+k.slice(1)] = t.value; else r[k] = t.value;
+});
+$('tData').addEventListener('paste', e => {
+  const t = e.target; if (!t.dataset || !t.dataset.k) return;
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (!text.includes('\t') && !text.includes('\n')) return;
+  e.preventDefault();
+  const keys = ['period', 'date', 'y', 'x0', 'x1', 'x2', 'x3', 'x4'];
+  const c0 = keys.indexOf(t.dataset.k), r0 = +t.dataset.r;
+  const lines = text.replace(/\r/g, '').split('\n').filter((l, i, a) => l.length || i < a.length - 1);
+  lines.forEach((line, i) => {
+    const ri = r0 + i;
+    while (S.rows.length <= ri) S.rows.push(blankRow(S.rows.length + 1));
+    line.split('\t').forEach((v, j) => {
+      const k = keys[c0 + j]; if (!k) return;
+      if (k.startsWith('x')) S.rows[ri].x[+k.slice(1)] = v.trim(); else S.rows[ri][k] = v.trim();
+    });
+  });
+  renderData(); setStatus(`Đã dán ${lines.length} dòng.`);
+});
+const blankRow = i => ({ period: String(i), date: '', y: '', x: ['', '', '', '', ''] });
+$('bAddRow').onclick = () => { S.rows.push(blankRow(S.rows.length + 1)); renderData(); };
+$('bDelRow').onclick = () => { S.rows.pop(); renderData(); };
+$('bClear').onclick = () => { if (confirm('Xóa toàn bộ dữ liệu đầu vào?')) { S.rows = []; S.userX = []; S.out = null; renderData(); renderFutX(); setStatus('Đã xóa dữ liệu.'); } };
+
+function renderFutX() {
+  const o = opts(), d = getData();
+  const H = o.horizon;
+  while (S.userX.length < H) S.userX.push(['', '', '', '', '']);
+  const fd = futureDates(d.dates, H);
+  const fxVals = S.out ? S.out.futureX : null;
+  let h = '<tr><th class="l">Period</th><th class="l">Date</th>' + XN.map(x => `<th>${x}</th>`).join('') + '</tr>';
+  for (let k = 0; k < H; k++) {
+    h += `<tr><td class="l">F${k + 1}</td><td class="l">${esc(fd[k])}</td>` + XN.map((_, j) => {
+      const c = d.xIdx.indexOf(j);
+      const ph = fxVals && c >= 0 && fxVals.values[k] && ok(fxVals.values[k][c]) ? f2(fxVals.values[k][c]) : (c < 0 ? 'n/a' : 'auto');
+      return `<td><input data-k="${k}" data-j="${j}" placeholder="${ph}" value="${esc(S.userX[k][j])}"></td>`;
+    }).join('') + '</tr>';
+  }
+  $('tFutX').innerHTML = h;
+}
+$('tFutX').addEventListener('input', e => { const t = e.target; if (t.dataset.k) S.userX[+t.dataset.k][+t.dataset.j] = t.value; });
+$('tFutX').addEventListener('change', () => { if (S.out && $('fxMode').value === 'user') setTimeout(() => runForecast(), 0); });
+
+// ---------- run ----------
+function runForecast(quiet) {
+  const d = getData(), o = opts();
+  if (d.y.length < 4) { if (!quiet) setStatus('Cần ít nhất 4 kỳ có giá trị Target_Y. Hãy load dữ liệu hoặc load demo.', true); return; }
+  o.userX = S.userX.slice(0, o.horizon).map(r => d.xIdx.map(j => num(r[j])));
+  const t0 = performance.now();
+  try {
+    S.out = FC.run(d, o);
+  } catch (e) { setStatus('Lỗi: ' + e.message, true); return; }
+  S.out.data = d; S.out.opts = o; S.out.fdates = futureDates(d.dates, o.horizon);
+  S.displayH = Math.min(Math.max(S.displayH, 1), o.horizon);
+  if (S.displayH === 6 && o.horizon < 6) S.displayH = o.horizon;
+  const ms = Math.round(performance.now() - t0);
+  const sel = S.out.results[S.out.selKey];
+  setStatus(`Hoàn tất trên trình duyệt trong ${ms} ms · ${d.y.length} kỳ lịch sử · ${d.xNames.length} biến X · Mô hình: ${sel.name} (RMSE ${f2(sel.metrics.RMSE, 3)})`);
+  $('warns').innerHTML = S.out.warnings.map(w => `<div>⚠ ${esc(w)}</div>`).join('');
+  renderAll();
+}
+function renderAll() { renderCompare(); renderResults(); renderFutX(); renderDash(); }
+
+// ---------- comparison ----------
+function paramStr(p) {
+  if (!p) return '';
+  return Object.entries(p).map(([k, v]) => `${k}=${v}`).join(', ');
+}
+function renderCompare() {
+  const o = S.out; if (!o) return;
+  let h = '<tr><th>#</th><th class="l">Method</th><th>MAE</th><th>RMSE</th><th>MAPE (%)</th><th>R²</th><th>N</th><th class="l">Parameters</th></tr>';
+  o.ranked.forEach((r, i) => {
+    const tags = (r.key === o.bestKey ? '<span class="pill">Best</span>' : '') + (r.key === o.selKey ? '<span class="pill b">Selected</span>' : '');
+    h += `<tr class="${r.key === o.selKey ? 'sel' : ''}" data-key="${r.key}" style="cursor:pointer"><td>${i + 1}</td><td class="l">${esc(r.name)}${tags}</td>`
+      + `<td>${f2(r.metrics.MAE, 3)}</td><td>${f2(r.metrics.RMSE, 3)}</td><td>${f2(r.metrics.MAPE, 2)}</td><td>${f2(r.metrics.R2, 4)}</td><td>${r.metrics.N}</td><td class="l">${esc(paramStr(r.params))}</td></tr>`;
+  });
+  const missing = Object.keys(FC.METHODS).filter(k => !o.results[k]);
+  missing.forEach(k => { h += `<tr><td>–</td><td class="l" style="color:var(--muted)">${esc(FC.METHODS[k])}</td><td colspan="6" class="l" style="color:var(--muted)">Không áp dụng được với dữ liệu / tham số hiện tại</td></tr>`; });
+  $('tCompare').innerHTML = h;
+}
+$('tCompare').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-key]'); if (!tr) return;
+  $('method').value = tr.dataset.key; runForecast();
+});
+
+// ---------- results ----------
+function renderResults() {
+  const o = S.out; if (!o) return;
+  const r = o.results[o.selKey], d = o.data;
+  $('resNote').textContent = `Mô hình: ${r.name} · MAE ${f2(r.metrics.MAE, 3)} · RMSE ${f2(r.metrics.RMSE, 3)} · MAPE ${f2(r.metrics.MAPE)}% · R² ${f2(r.metrics.R2, 4)}`;
+  let h = '<tr><th class="l">Period</th><th class="l">Date</th><th>Actual</th><th>Fitted</th><th>Error</th><th>Forecast</th></tr>';
+  d.y.forEach((y, i) => {
+    const f = r.fitted[i];
+    h += `<tr><td class="l">${esc(d.periods[i])}</td><td class="l">${esc(d.dates[i])}</td><td>${f2(y)}</td><td>${f2(f)}</td><td>${ok(f) ? f2(y - f) : '–'}</td><td></td></tr>`;
+  });
+  r.forecast.forEach((f, k) => { h += `<tr class="fut"><td class="l">F${k + 1}</td><td class="l">${esc(o.fdates[k])}</td><td></td><td></td><td></td><td class="fc">${f2(f)}</td></tr>`; });
+  $('tResults').innerHTML = h;
+
+  $('coefCard').classList.toggle('hidden', !r.coefficients);
+  if (r.coefficients) {
+    $('tCoef').innerHTML = '<tr><th class="l">Term</th><th>Coefficient</th><th>Std. Error</th><th>t-stat</th></tr>'
+      + r.coefficients.map(c => `<tr><td class="l">${esc(c.term)}</td><td>${f2(c.coef, 4)}</td><td>${f2(c.se, 4)}</td><td>${f2(c.t, 3)}</td></tr>`).join('');
+  }
+
+  const hw = o.results.hw;
+  $('hwCard').classList.toggle('hidden', !hw);
+  if (hw) {
+    $('hwParams').textContent = `Tham số sử dụng: α = ${hw.params.alpha}, β = ${hw.params.beta}, γ = ${hw.params.gamma}${hw.params.optimized ? ' (tự tối ưu theo RMSE)' : ' (nhập tay)'}.`;
+    let t = '<tr><th class="l">Period</th><th>Actual</th><th>Level</th><th>Trend</th><th>Seasonal</th><th>Fitted</th><th>Forecast</th></tr>';
+    hw.components.history.forEach((c, i) => { t += `<tr><td class="l">${esc(d.periods[i])}</td><td>${f2(d.y[i])}</td><td>${f2(c.level)}</td><td>${f2(c.trend, 3)}</td><td>${f2(c.seasonal)}</td><td>${f2(c.fitted)}</td><td></td></tr>`; });
+    hw.components.future.forEach(c => { t += `<tr class="fut"><td class="l">F${c.h} (h=${c.h})</td><td></td><td>${f2(c.level)}</td><td>${f2(c.trend, 3)}</td><td>${f2(c.seasonal)}</td><td></td><td class="fc">${f2(c.forecast)}</td></tr>`; });
+    $('tHW').innerHTML = t;
+  }
+
+  const fx = o.futureX;
+  const hasX = d.xNames.length > 0;
+  $('fxCard').classList.toggle('hidden', !hasX); $('fxvCard').classList.toggle('hidden', !hasX);
+  if (hasX) {
+    const keys = Object.keys(FC.FX_METHODS);
+    let t = '<tr><th class="l">Variable</th><th class="l">Mode</th><th class="l">Selected model</th><th>Val. kỳ</th>' + keys.map(k => `<th>${esc(FC.FX_METHODS[k])}</th>`).join('') + '</tr>';
+    fx.info.forEach(i => {
+      t += `<tr><td class="l">${esc(i.variable)}${i.binary ? ' <span class="pill b">0/1</span>' : ''}</td><td class="l">${esc(i.mode)}${i.userCells ? ` · ${i.userCells} ô nhập tay` : ''}</td><td class="l"><b>${esc(FC.FX_METHODS[i.method])}</b>${i.note ? `<br><small style="color:var(--warn)">${esc(i.note)}</small>` : ''}</td><td>${i.validation ?? '–'}</td>`
+        + keys.map(k => { const v = i.scores ? i.scores[k] : undefined; return `<td style="${k === i.method && v != null ? 'font-weight:700;color:var(--accent)' : ''}">${v == null ? '–' : f2(v, 3)}</td>`; }).join('') + '</tr>';
+    });
+    $('tFxSel').innerHTML = t;
+    $('tFxVal').innerHTML = '<tr><th class="l">Period</th><th class="l">Date</th>' + d.xNames.map(x => `<th>${x}</th>`).join('') + '<th>Forecast Y</th></tr>'
+      + fx.values.map((row, k) => `<tr><td class="l">F${k + 1}</td><td class="l">${esc(o.fdates[k])}</td>${row.map(v => `<td>${f2(v)}</td>`).join('')}<td class="fc" style="color:var(--c2);font-weight:600">${f2(r.forecast[k])}</td></tr>`).join('');
+  }
+}
+
+// ---------- dashboard ----------
+function chart(id, cfg) {
+  if (S.charts[id]) S.charts[id].destroy();
+  S.charts[id] = new Chart($(id), cfg);
+}
+function baseOpts() {
+  const g = css('--grid'), m = css('--muted');
+  return {
+    responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: m, boxWidth: 12 } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${f2(c.parsed.y)}` } } },
+    scales: { x: { ticks: { color: m, maxRotation: 0, autoSkipPadding: 12 }, grid: { color: g } }, y: { ticks: { color: m }, grid: { color: g } } }
+  };
+}
+function renderDash() {
+  const o = S.out; if (!o) return;
+  const r = o.results[o.selKey], d = o.data, H = o.opts.horizon;
+  const dh = Math.min(S.displayH, H);
+  $('hz').max = H; $('hz').value = dh; $('hzLbl').textContent = `${dh} period${dh > 1 ? 's' : ''}`;
+  const fc = r.forecast.slice(0, dh);
+  $('kFirst').textContent = f2(fc[0]); $('kLast').textContent = f2(fc[fc.length - 1]);
+  $('kAvg').textContent = f2(fc.reduce((a, b) => a + b, 0) / fc.length);
+  const lastY = d.y[d.y.length - 1], chg = (fc[fc.length - 1] - lastY) / Math.abs(lastY) * 100;
+  $('kChg').textContent = ok(chg) ? (chg >= 0 ? '+' : '') + f2(chg, 1) + '%' : 'N/A';
+
+  const labels = [...d.dates.map((x, i) => x || d.periods[i]), ...o.fdates.slice(0, dh).map((x, k) => x || 'F' + (k + 1))];
+  const n = d.y.length, pad = new Array(dh).fill(null);
+  const futLine = new Array(n - 1).fill(null).concat([d.y[n - 1]], fc);
+  const bo = baseOpts();
+  chart('cMain', {
+    type: 'line',
+    data: {
+      labels, datasets: [
+        { label: 'Actual', data: [...d.y, ...pad], borderColor: css('--c1'), backgroundColor: css('--c1'), pointRadius: 2, borderWidth: 2, tension: 0 },
+        { label: 'Fitted', data: [...r.fitted.map(v => ok(v) ? v : null), ...pad], borderColor: css('--c3'), borderDash: [5, 4], pointRadius: 0, borderWidth: 2, spanGaps: false },
+        { label: 'Future forecast', data: futLine, borderColor: css('--c2'), backgroundColor: css('--c2'), pointRadius: futLine.map((v, i) => i < n ? 0 : 3), borderWidth: 2.5 }
+      ]
+    }, options: bo
+  });
+  const res = d.y.map((y, i) => ok(r.fitted[i]) ? y - r.fitted[i] : null);
+  const ro = baseOpts(); ro.plugins.legend.display = false;
+  chart('cRes', {
+    type: 'bar',
+    data: { labels: d.dates.map((x, i) => x || d.periods[i]), datasets: [{ label: 'Error', data: res, backgroundColor: res.map(v => v >= 0 ? css('--c1') : css('--c2')) }] },
+    options: ro
+  });
+  const rk = o.ranked;
+  const bo2 = baseOpts(); bo2.indexAxis = 'y'; bo2.plugins.legend.display = false; bo2.interaction = { mode: 'nearest', intersect: true };
+  bo2.plugins.tooltip.callbacks.label = c => `RMSE: ${f2(c.parsed.x, 3)}`;
+  chart('cRmse', {
+    type: 'bar',
+    data: { labels: rk.map(x => x.name.replace('Multiple Linear Regression', 'MLR')), datasets: [{ data: rk.map(x => x.metrics.RMSE), backgroundColor: rk.map(x => x.key === o.selKey ? css('--c1') : css('--c4')), borderRadius: 3 }] },
+    options: bo2
+  });
+  renderSummary(r, fc, dh, chg);
+}
+function renderSummary(r, fc, dh, chg) {
+  const o = S.out, d = o.data, best = o.results[o.bestKey];
+  const dir = !ok(chg) ? '' : Math.abs(chg) < 1 ? 'gần như đi ngang' : chg > 0 ? `tăng ${f2(chg, 1)}%` : `giảm ${f2(-chg, 1)}%`;
+  const second = o.ranked[1];
+  const items = [
+    `Dữ liệu: <b>${d.y.length}</b> kỳ lịch sử, season length <b>${o.m}</b>, ${d.xNames.length ? `biến giải thích ${d.xNames.join(', ')}` : 'không có biến X'}.`,
+    `Mô hình sử dụng: <b>${esc(r.name)}</b> — RMSE ${f2(r.metrics.RMSE, 3)}, MAPE ${f2(r.metrics.MAPE)}%, R² ${f2(r.metrics.R2, 4)}.`,
+    r.key === best.key
+      ? (second ? `Đây là mô hình tốt nhất theo RMSE; xếp thứ hai là ${esc(second.name)} (RMSE ${f2(second.metrics.RMSE, 3)}).` : 'Đây là mô hình tốt nhất theo RMSE.')
+      : `Mô hình tốt nhất theo RMSE là ${esc(best.name)} (RMSE ${f2(best.metrics.RMSE, 3)}).`,
+    `Dự báo ${dh} kỳ tới: từ <b>${f2(fc[0])}</b> đến <b>${f2(fc[fc.length - 1])}</b>, trung bình ${f2(fc.reduce((a, b) => a + b, 0) / fc.length)}; so với quan sát cuối (${f2(d.y[d.y.length - 1])}) ${dir}.`
+  ];
+  if (/^mlr/.test(r.key) && o.futureX.info.length)
+    items.push(`Future X: ${o.futureX.info.map(i => `${i.variable} → ${esc(FC.FX_METHODS[i.method])}${i.userCells ? ` (+${i.userCells} ô nhập tay)` : ''}`).join('; ')}.`);
+  if (r.key === 'hw') items.push(`Holt-Winters: α=${r.params.alpha}, β=${r.params.beta}, γ=${r.params.gamma}${r.params.optimized ? ' (tự tối ưu)' : ''}.`);
+  if (/^mlr/.test(r.key) && r.metrics.N - r.params.terms < 10) items.push('Lưu ý: số bậc tự do còn lại thấp — R² cao có thể do overfitting; nên kiểm tra thêm bằng dữ liệu kiểm chứng.');
+  o.warnings.forEach(w => items.push('⚠ ' + esc(w)));
+  $('summary').innerHTML = '<ul>' + items.map(x => `<li>${x}</li>`).join('') + '</ul>';
+}
+$('hz').addEventListener('input', e => { S.displayH = +e.target.value; renderDash(); });
+$('bApplyHz').onclick = () => { $('horizon').value = $('hz').value; S.displayH = +$('hz').value; runForecast(); };
+
+// ---------- tabs ----------
+$('tabs').addEventListener('click', e => {
+  const b = e.target.closest('.tab'); if (!b) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t === b));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === b.dataset.p));
+  if (b.dataset.p === 'pDash' && S.out) renderDash();
+});
+
+// ---------- auto re-run on parameter change ----------
+['method', 'season', 'horizon', 'fxMode', 'hwA', 'hwB', 'hwG', 'hwAuto', 'anchor', 'maW'].forEach(id =>
+  $(id).addEventListener('change', () => { if (id === 'horizon') S.displayH = Math.min(6, +$('horizon').value || 6); if (S.out) runForecast(); else renderFutX(); }));
+$('bRun').onclick = () => runForecast();
+
+// ---------- demo ----------
+function demo() {
+  let s = 20260101; const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const seas = [-18, -12, -2, 6, 14, 22, 26, 20, 8, -4, -14, -20];
+  S.rows = [];
+  for (let t = 1; t <= 48; t++) {
+    const x1 = 50 + 0.8 * t + 5 * (rnd() - .5), x2 = 100 + 10 * Math.sin(t / 3) + 4 * (rnd() - .5), x3 = t % 6 === 0 ? 1 : 0;
+    const y = 200 + 2.5 * t + seas[(t - 1) % 12] + 3 * x1 - 1.5 * x2 + 20 * x3 + 8 * (rnd() - .5);
+    const d = new Date(Date.UTC(2022, t - 1, 1)).toISOString().slice(0, 10);
+    S.rows.push({ period: String(t), date: d, y: y.toFixed(2), x: [x1.toFixed(2), x2.toFixed(2), String(x3), '', ''] });
+  }
+  S.userX = [];
+  $('season').value = 12; $('horizon').value = 12; S.displayH = 6;
+  renderData(); runForecast();
+  setStatus($('status').textContent + ' · Demo: 48 tháng (2022–2025), X1 xu thế, X2 chu kỳ, X3 khuyến mãi 0/1.');
+}
+$('bDemo').onclick = demo;
+
+// ---------- Excel template / load ----------
+$('bTemplate').onclick = () => {
+  const head = ['Period', 'Date', 'Target_Y', ...XN];
+  const rows = [head];
+  for (let t = 1; t <= 24; t++) rows.push([t, new Date(Date.UTC(2024, t - 1, 1)).toISOString().slice(0, 10), null, null, null, null, null, null]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = head.map((_, i) => ({ wch: i === 1 ? 12 : 10 }));
+  const g = XLSX.utils.aoa_to_sheet([
+    ['Hướng dẫn'], ['1. Điền dữ liệu vào sheet ForecastData (không đổi tên sheet và tiêu đề cột).'],
+    ['2. Period: số thứ tự kỳ; Date: yyyy-mm-dd (tùy chọn, dùng để suy ra ngày các kỳ tương lai).'],
+    ['3. Target_Y: biến cần dự báo; X1–X5: biến giải thích (để trống cột không dùng).'],
+    ['4. Các dòng cuối có X nhưng không có Target_Y được hiểu là kịch bản X tương lai (User Input / Scenario).'],
+    ['5. Load Excel trên web app → chọn phương pháp → RUN Forecast → Export Results.']]);
+  g['!cols'] = [{ wch: 100 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'ForecastData'); XLSX.utils.book_append_sheet(wb, g, 'Guide');
+  XLSX.writeFile(wb, 'Forecast_Template.xlsx');
+  setStatus('Đã tạo Forecast_Template.xlsx.');
+};
+$('bLoad').onclick = () => $('fileIn').click();
+$('fileIn').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const wb = XLSX.read(await f.arrayBuffer(), { cellDates: true });
+    const name = wb.SheetNames.find(n => n.toLowerCase() === 'forecastdata') || wb.SheetNames[0];
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null });
+    const hi = aoa.findIndex(r => r && r.some(c => String(c ?? '').trim().toLowerCase() === 'target_y'));
+    if (hi < 0) throw new Error('Không tìm thấy cột Target_Y trong sheet ' + name);
+    const head = aoa[hi].map(c => String(c ?? '').trim().toLowerCase());
+    const col = k => head.indexOf(k.toLowerCase());
+    const cP = col('Period'), cD = col('Date'), cY = col('Target_Y'), cX = XN.map(col);
+    const rows = [];
+    for (const r of aoa.slice(hi + 1)) {
+      if (!r || r.every(c => c === null || c === '')) continue;
+      const v = i => i >= 0 && r[i] != null ? r[i] : '';
+      rows.push({ period: String(v(cP)), date: fmtDate(v(cD)), y: v(cY) === '' ? '' : String(v(cY)), x: cX.map(i => v(i) === '' ? '' : String(v(i))) });
+    }
+    // trailing rows with X but no Y → future scenario
+    let k = rows.length; while (k > 0 && !ok(num(rows[k - 1].y))) k--;
+    const fut = rows.slice(k).filter(r => r.x.some(x => ok(num(x))));
+    S.rows = rows.slice(0, k);
+    S.userX = fut.map(r => r.x.slice());
+    if (fut.length) { $('fxMode').value = 'user'; $('horizon').value = Math.max(fut.length, +$('horizon').value); }
+    S.out = null; renderData(); renderFutX();
+    setStatus(`Đã load ${S.rows.length} kỳ từ sheet "${name}" (${f.name})${fut.length ? ` + ${fut.length} kỳ X tương lai → chế độ User Input / Scenario` : ''}. Bấm RUN Forecast.`);
+    runForecast(true);
+  } catch (err) { setStatus('Không đọc được file: ' + err.message, true); }
+  e.target.value = '';
+};
+
+// ---------- export ----------
+$('bExport').onclick = () => {
+  const o = S.out; if (!o) { setStatus('Chưa có kết quả. Hãy RUN Forecast trước.', true); return; }
+  const r = o.results[o.selKey], d = o.data, wb = XLSX.utils.book_new();
+  const add = (aoa, name, w) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = aoa[0].map((_, i) => ({ wch: i === 0 ? (w || 14) : 14 })); XLSX.utils.book_append_sheet(wb, ws, name); };
+  const R = v => ok(v) ? Math.round(v * 1e4) / 1e4 : null;
+  add([['Period', 'Date', 'Target_Y', ...d.xNames], ...d.y.map((y, i) => [d.periods[i], d.dates[i], y, ...d.X[i]])], 'ForecastData');
+  add([['Rank', 'Method', 'MAE', 'RMSE', 'MAPE (%)', 'R2', 'N', 'Parameters', 'Selected'],
+    ...o.ranked.map((x, i) => [i + 1, x.name, R(x.metrics.MAE), R(x.metrics.RMSE), R(x.metrics.MAPE), R(x.metrics.R2), x.metrics.N, paramStr(x.params), x.key === o.selKey ? 'Yes' : ''])], 'ModelComparison', 6);
+  add([['Period', 'Date', 'Actual', 'Fitted', 'Error', 'Forecast'],
+    ...d.y.map((y, i) => [d.periods[i], d.dates[i], y, R(r.fitted[i]), ok(r.fitted[i]) ? R(y - r.fitted[i]) : null, null]),
+    ...r.forecast.map((f, k) => ['F' + (k + 1), o.fdates[k], null, null, null, R(f)])], 'ForecastResults');
+  if (r.coefficients) add([['Term', 'Coefficient', 'Std. Error', 't-stat'], ...r.coefficients.map(c => [c.term, R(c.coef), R(c.se), R(c.t)])], 'Coefficients');
+  if (d.xNames.length) {
+    add([['Period', 'Date', ...d.xNames, 'Forecast_Y'], ...o.futureX.values.map((row, k) => ['F' + (k + 1), o.fdates[k], ...row.map(R), R(r.forecast[k])])], 'FutureX');
+    const keys = Object.keys(FC.FX_METHODS);
+    add([['Variable', 'Mode', 'Selected model', 'Validation periods', ...keys.map(k => FC.FX_METHODS[k] + ' RMSE')],
+      ...o.futureX.info.map(i => [i.variable, i.mode, FC.FX_METHODS[i.method], i.validation ?? null, ...keys.map(k => i.scores && i.scores[k] != null ? R(i.scores[k]) : null)])], 'FutureX_Selection');
+  }
+  if (o.results.hw) {
+    const hw = o.results.hw;
+    add([['Period', 'Actual', 'Level', 'Trend', 'Seasonal', 'Fitted', 'Forecast'],
+      ...hw.components.history.map((c, i) => [d.periods[i], d.y[i], R(c.level), R(c.trend), R(c.seasonal), R(c.fitted), null]),
+      ...hw.components.future.map(c => ['F' + c.h, null, R(c.level), R(c.trend), R(c.seasonal), null, R(c.forecast)]),
+      [], ['alpha', hw.params.alpha], ['beta', hw.params.beta], ['gamma', hw.params.gamma], ['optimized', hw.params.optimized ? 'Yes' : 'No']], 'HW_Components');
+  }
+  const sum = [...$('summary').querySelectorAll('li')].map(li => [li.textContent]);
+  add([['Executive Summary'], ...sum, [], ['Generated', new Date().toISOString()], ['Engine', 'Client-side JavaScript V1.4.0']], 'Summary', 110);
+  XLSX.writeFile(wb, `Forecast_Results_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  setStatus('Đã xuất file kết quả Excel.');
+};
+
+// re-theme charts when OS theme flips
+if (window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (S.out) renderDash(); });
+
+renderData(); renderFutX();
+})();
+
+</script>
 </body>
 </html>
